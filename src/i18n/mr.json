@@ -1,0 +1,19 @@
+{
+  "app_name": "हेल्थआयडी",
+  "tagline": "NFC डिजिटल आरोग्य नोंदी",
+  "login": "लॉग इन",
+  "register": "नोंदणी",
+  "logout": "लॉग आउट",
+  "email": "ईमेल",
+  "password": "पासवर्ड",
+  "full_name": "पूर्ण नाव",
+  "phone": "फोन",
+  "role": "भूमिका",
+  "worker": "कामगार",
+  "doctor": "डॉक्टर",
+  "admin": "प्रशासक",
+  "dashboard": "डॅशबोर्ड",
+  "my_records": "माझ्या नोंदी",
+  "prescriptions": "औषधे",
+  "notifications": "सूचना"
+}
