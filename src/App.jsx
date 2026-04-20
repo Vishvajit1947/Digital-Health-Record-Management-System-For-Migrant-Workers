@@ -1,7 +1,8 @@
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import './lib/i18n'
 
 import RoleGuard from './components/shared/RoleGuard'
@@ -33,16 +34,9 @@ import Analytics from './pages/admin/Analytics'
 import RiskTable from './pages/admin/RiskTable'
 
 function ProtectedLayout({ role, children }) {
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark')
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode)
-    localStorage.setItem('theme', darkMode ? 'dark' : 'light')
-  }, [darkMode])
-
   return (
     <RoleGuard role={role}>
-      <AppLayout darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)}>
+      <AppLayout>
         {children}
       </AppLayout>
     </RoleGuard>
@@ -50,59 +44,52 @@ function ProtectedLayout({ role, children }) {
 }
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('theme')
-    return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode)
-  }, [darkMode])
-
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: { borderRadius: '12px', background: '#1E293B', color: '#F8FAFC', fontSize: '14px' },
-              success: { iconTheme: { primary: '#16A34A', secondary: '#F8FAFC' } },
-              error: { iconTheme: { primary: '#DC2626', secondary: '#F8FAFC' } },
-            }}
-          />
-          <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><LoadingSpinner size="lg" /></div>}>
-            <Routes>
-              {/* Auth */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+        <ThemeProvider>
+          <AuthProvider>
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: { borderRadius: '12px', background: '#1E293B', color: '#F8FAFC', fontSize: '14px' },
+                success: { iconTheme: { primary: '#16A34A', secondary: '#F8FAFC' } },
+                error: { iconTheme: { primary: '#DC2626', secondary: '#F8FAFC' } },
+              }}
+            />
+            <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><LoadingSpinner size="lg" /></div>}>
+              <Routes>
+                {/* Auth */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
 
-              {/* Public NFC patient link */}
-              <Route path="/patient/:token/:patientName?" element={<PatientAccess />} />
+                {/* Public NFC patient link */}
+                <Route path="/patient/:token/:patientName?" element={<PatientAccess />} />
 
-              {/* Worker routes */}
-              <Route path="/worker/dashboard" element={<ProtectedLayout role="worker"><WorkerDashboard /></ProtectedLayout>} />
-              <Route path="/worker/records" element={<ProtectedLayout role="worker"><WorkerRecords /></ProtectedLayout>} />
-              <Route path="/worker/prescriptions" element={<ProtectedLayout role="worker"><WorkerPrescriptions /></ProtectedLayout>} />
-              <Route path="/worker/notifications" element={<ProtectedLayout role="worker"><WorkerNotifications /></ProtectedLayout>} />
+                {/* Worker routes */}
+                <Route path="/worker/dashboard" element={<ProtectedLayout role="worker"><WorkerDashboard /></ProtectedLayout>} />
+                <Route path="/worker/records" element={<ProtectedLayout role="worker"><WorkerRecords /></ProtectedLayout>} />
+                <Route path="/worker/prescriptions" element={<ProtectedLayout role="worker"><WorkerPrescriptions /></ProtectedLayout>} />
+                <Route path="/worker/notifications" element={<ProtectedLayout role="worker"><WorkerNotifications /></ProtectedLayout>} />
 
-              {/* Doctor routes */}
-              <Route path="/doctor/dashboard" element={<ProtectedLayout role="doctor"><DoctorDashboard /></ProtectedLayout>} />
-              <Route path="/doctor/scan" element={<ProtectedLayout role="doctor"><ScanNFC /></ProtectedLayout>} />
-              <Route path="/doctor/patient/:id" element={<ProtectedLayout role="doctor"><PatientDetail /></ProtectedLayout>} />
-              <Route path="/doctor/add-record/:patientId" element={<ProtectedLayout role="doctor"><AddRecord /></ProtectedLayout>} />
+                {/* Doctor routes */}
+                <Route path="/doctor/dashboard" element={<ProtectedLayout role="doctor"><DoctorDashboard /></ProtectedLayout>} />
+                <Route path="/doctor/scan" element={<ProtectedLayout role="doctor"><ScanNFC /></ProtectedLayout>} />
+                <Route path="/doctor/patient/:id" element={<ProtectedLayout role="doctor"><PatientDetail /></ProtectedLayout>} />
+                <Route path="/doctor/add-record/:patientId" element={<ProtectedLayout role="doctor"><AddRecord /></ProtectedLayout>} />
 
-              {/* Admin routes */}
-              <Route path="/admin/dashboard" element={<ProtectedLayout role="admin"><AdminDashboard /></ProtectedLayout>} />
-              <Route path="/admin/analytics" element={<ProtectedLayout role="admin"><Analytics /></ProtectedLayout>} />
-              <Route path="/admin/risk-table" element={<ProtectedLayout role="admin"><RiskTable /></ProtectedLayout>} />
+                {/* Admin routes */}
+                <Route path="/admin/dashboard" element={<ProtectedLayout role="admin"><AdminDashboard /></ProtectedLayout>} />
+                <Route path="/admin/analytics" element={<ProtectedLayout role="admin"><Analytics /></ProtectedLayout>} />
+                <Route path="/admin/risk-table" element={<ProtectedLayout role="admin"><RiskTable /></ProtectedLayout>} />
 
-              {/* Default redirect */}
-              <Route path="/" element={<Home darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-        </AuthProvider>
+                {/* Default redirect */}
+                <Route path="/" element={<Home />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </ErrorBoundary>
   )

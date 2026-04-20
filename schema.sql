@@ -35,7 +35,7 @@ create table public.workers (
   user_id uuid references public.users(id) on delete cascade,
 
   health_id text unique not null,
-  date_of_birth date,
+  date_of_birth date, 
   gender text,
   blood_type text,
 

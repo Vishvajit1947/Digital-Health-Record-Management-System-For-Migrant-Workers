@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Nfc, LogOut, Sun, Moon, Globe, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../../lib/constants'
 
@@ -11,8 +12,9 @@ const ROLE_COLORS = {
   admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 }
 
-export default function Navbar({ darkMode, onToggleDark }) {
+export default function Navbar() {
   const { role, signOut } = useAuth()
+  const { darkMode, toggleDark } = useTheme()
   const { i18n, t } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
 
@@ -68,7 +70,7 @@ export default function Navbar({ darkMode, onToggleDark }) {
 
       {/* Dark mode toggle */}
       <button
-        onClick={onToggleDark}
+        onClick={toggleDark}
         className="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
         aria-label="Toggle dark mode"
       >

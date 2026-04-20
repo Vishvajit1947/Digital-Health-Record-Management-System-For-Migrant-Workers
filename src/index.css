@@ -1,14 +1,6 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #4F46E5;
-  --color-success: #16A34A;
-  --color-warning: #D97706;
-  --color-danger: #DC2626;
-  --color-surface: #F8FAFC;
-  --color-muted: #64748B;
-  --font-family-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
 * {
   box-sizing: border-box;
