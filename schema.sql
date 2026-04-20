@@ -51,7 +51,7 @@ create table public.workers (
 -- ==============================
 create table public.nfc_tokens (
   id uuid primary key default gen_random_uuid(),
-  worker_id uuid references public.workers(id) on delete cascade,
+  worker_id uuid unique references public.workers(id) on delete cascade,
 
   token text unique not null,
   is_active boolean default true,

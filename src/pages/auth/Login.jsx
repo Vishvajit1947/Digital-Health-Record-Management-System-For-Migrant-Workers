@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Nfc, Mail, Lock, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
@@ -12,9 +12,21 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { signIn, demoLogin, role } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const { t, i18n } = useTranslation()
 
   const ROLE_REDIRECT = { worker: '/worker/dashboard', doctor: '/doctor/dashboard', admin: '/admin/dashboard' }
+  const intendedPath = location.state?.from?.pathname
+
+  function getRedirectTarget(currentRole) {
+    if (currentRole === 'doctor' && intendedPath) return intendedPath
+    return ROLE_REDIRECT[currentRole] || '/'
+  }
+
+  useEffect(() => {
+    if (!role || loading) return
+    navigate(getRedirectTarget(role), { replace: true })
+  }, [role, loading, navigate, intendedPath])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -30,16 +42,10 @@ export default function Login() {
     }
   }
 
-  // Navigate after role is determined
-  if (role) {
-    navigate(ROLE_REDIRECT[role] || '/login', { replace: true })
-    return null
-  }
-
   function handleDemoLogin(demoRole) {
     demoLogin(demoRole)
     toast.success(`Logged in as demo ${demoRole}`)
-    navigate(ROLE_REDIRECT[demoRole], { replace: true })
+    navigate(getRedirectTarget(demoRole), { replace: true })
   }
 
   return (
@@ -50,13 +56,13 @@ export default function Login() {
           <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
             <Nfc className="w-9 h-9 text-white" />
           </div>
-          <h1 className="text-3xl font-semibold text-slate-800 dark:text-slate-100">HealthID</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">NFC Digital Health Records</p>
+          <h1 className="text-3xl font-semibold text-slate-800 dark:text-slate-100">{t('app_name')}</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">{t('tagline')}</p>
         </div>
 
         {/* Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8">
-          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-6">Sign in to your account</h2>
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-6">{t('login_heading')}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -111,7 +117,7 @@ export default function Login() {
 
           {/* Demo Login */}
           <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
-            <p className="text-xs text-center text-slate-400 mb-3 uppercase tracking-wide font-medium">Demo Access</p>
+            <p className="text-xs text-center text-slate-400 mb-3 uppercase tracking-wide font-medium">{t('demo_access')}</p>
             <div className="grid grid-cols-3 gap-2">
               {['worker', 'doctor', 'admin'].map(r => (
                 <button
@@ -119,7 +125,7 @@ export default function Login() {
                   onClick={() => handleDemoLogin(r)}
                   className="text-xs py-2 px-3 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 capitalize transition-colors"
                 >
-                  {r}
+                  {t(r)}
                 </button>
               ))}
             </div>

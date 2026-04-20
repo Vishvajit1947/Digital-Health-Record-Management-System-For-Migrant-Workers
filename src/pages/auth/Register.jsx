@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Nfc, User, Mail, Lock, Phone, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import { BLOOD_TYPES, REGIONS } from '../../lib/constants'
+import { buildPatientNfcUrl } from '../../lib/helpers'
 
 const SPECIALIZATIONS = ['General Medicine', 'Orthopedics', 'Pulmonology', 'Dermatology', 'ENT', 'Cardiology', 'Neurology']
 
@@ -11,6 +13,7 @@ export default function Register() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [role, setRole] = useState('worker')
+  const { t } = useTranslation()
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', phone: '',
     // Worker
@@ -48,6 +51,7 @@ export default function Register() {
         // 2. Insert into role-specific table
         if (role === 'worker') {
           const health_id = 'W-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+          const nfcToken = crypto.randomUUID()
           const { error: workerErr } = await supabase.from('workers').insert({ 
             user_id: userId, 
             health_id: health_id,
@@ -58,6 +62,25 @@ export default function Register() {
             occupation: form.occupation || null
           })
           if (workerErr) throw workerErr;
+
+          const { data: workerRow, error: workerLookupErr } = await supabase
+            .from('workers')
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+
+          if (workerLookupErr) throw workerLookupErr
+
+          const { error: tokenErr } = await supabase.from('nfc_tokens').insert({
+            worker_id: workerRow.id,
+            token: nfcToken,
+            is_active: true,
+          })
+          if (tokenErr) throw tokenErr
+
+          const nfcUrl = buildPatientNfcUrl(nfcToken, form.full_name)
+          toast.success('Unique NFC URL created for this patient')
+          toast(nfcUrl, { duration: 7000 })
         } else {
           const { error: docErr } = await supabase.from('doctors').insert({ 
             user_id: userId, 
@@ -89,19 +112,19 @@ export default function Register() {
           <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
             <Nfc className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Create your HealthID</h1>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{t('register_heading')}</h1>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Role selector */}
             <div>
-              <label className={labelCls}>I am a</label>
+              <label className={labelCls}>{t('register_role_label')}</label>
               <div className="grid grid-cols-2 gap-3">
                 {['worker', 'doctor'].map(r => (
                   <button type="button" key={r} onClick={() => setRole(r)}
                     className={`py-3 rounded-xl text-sm font-medium border transition-colors capitalize ${role === r ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-                    {r}
+                    {t(r)}
                   </button>
                 ))}
               </div>
@@ -205,13 +228,13 @@ export default function Register() {
               disabled={loading}
               className="w-full bg-indigo-600 text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 mt-2"
             >
-              {loading ? 'Creating account...' : 'Create Account'}
+              {loading ? t('register_creating') : t('register_cta')}
             </button>
           </form>
 
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center mt-4">
-            Already have an account?{' '}
-            <Link to="/login" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">Sign in</Link>
+            {t('register_have_account')}{' '}
+            <Link to="/login" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">{t('login')}</Link>
           </p>
         </div>
       </div>

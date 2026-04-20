@@ -1,28 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Nfc, Search, AlertCircle, User, RotateCcw, ChevronRight, Activity } from 'lucide-react'
-import HealthScoreMeter from '../../components/shared/HealthScoreMeter'
-import { RISK_BADGE_CLASSES } from '../../lib/constants'
+import { Nfc, Search, AlertCircle, RotateCcw, ChevronRight, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { extractPatientToken } from '../../lib/helpers'
 
 const STATES = { READY: 'ready', SCANNING: 'scanning', FOUND: 'found', NOT_FOUND: 'not_found' }
 
-const mockPatient = {
-  id: '1',
-  name: 'Ravi Kumar Sharma',
-  health_id: 'HW-20240001',
-  age: 34,
-  blood_type: 'O+',
-  region: 'Maharashtra',
-  health_score: 72,
-  risk_level: 'Low',
-  gender: 'Male',
-  occupation: 'Construction Worker',
-}
-
 export default function ScanNFC() {
   const [scanState, setScanState] = useState(STATES.READY)
-  const [patient, setPatient] = useState(null)
   const [manualId, setManualId] = useState('')
   const navigate = useNavigate()
 
@@ -38,8 +23,12 @@ export default function ScanNFC() {
       ndef.addEventListener('reading', ({ message }) => {
         const record = message.records[0]
         const decoder = new TextDecoder()
-        const token = decoder.decode(record.data)
-        lookupPatient(token)
+        const token = extractPatientToken(decoder.decode(record.data))
+        if (token?.trim()) {
+          navigate(`/patient/${encodeURIComponent(token.trim())}`)
+        } else {
+          setScanState(STATES.NOT_FOUND)
+        }
       })
       ndef.addEventListener('readingerror', () => {
         setScanState(STATES.NOT_FOUND)
@@ -50,36 +39,23 @@ export default function ScanNFC() {
     }
   }
 
-  function lookupPatient(token) {
-    setScanState(STATES.SCANNING)
-    // Simulate lookup
-    setTimeout(() => {
-      if (token || token === 'demo') {
-        setPatient(mockPatient)
-        setScanState(STATES.FOUND)
-      } else {
-        setScanState(STATES.NOT_FOUND)
-      }
-    }, 1500)
-  }
-
   function handleManualSearch(e) {
     e.preventDefault()
     if (!manualId.trim()) return
-    lookupPatient(manualId)
+    const token = extractPatientToken(manualId)
+    if (!token) {
+      toast.error('Enter a valid NFC token or patient URL')
+      return
+    }
+    navigate(`/patient/${encodeURIComponent(token)}`)
   }
 
   function handleDemoScan() {
-    setScanState(STATES.SCANNING)
-    setTimeout(() => {
-      setPatient(mockPatient)
-      setScanState(STATES.FOUND)
-    }, 1800)
+    navigate('/patient/demo-token/ravi-kumar-sharma')
   }
 
   function reset() {
     setScanState(STATES.READY)
-    setPatient(null)
     setManualId('')
   }
 
@@ -98,13 +74,20 @@ export default function ScanNFC() {
             </div>
 
             <h2 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 mb-2">NFC Patient Scan</h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-8">Hold the patient's NFC card near the device to read their health record</p>
+            <p className="text-slate-500 dark:text-slate-400 mb-8">Hold the card near the device or paste the patient token from the NFC URL</p>
 
             <button
-              onClick={handleDemoScan}
+              onClick={startNFCScan}
               className="w-full bg-indigo-600 text-white rounded-xl px-5 py-3 font-medium hover:bg-indigo-700 transition-colors mb-4"
             >
               Start NFC Scan
+            </button>
+
+            <button
+              onClick={handleDemoScan}
+              className="w-full border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 rounded-xl px-5 py-2.5 font-medium hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors mb-4"
+            >
+              Open Demo Patient Link
             </button>
 
             <div className="relative my-4">
@@ -117,7 +100,7 @@ export default function ScanNFC() {
                 type="text"
                 value={manualId}
                 onChange={e => setManualId(e.target.value)}
-                placeholder="Enter Health ID (e.g. HW-20240001)"
+                placeholder="Enter NFC token or patient link token"
                 className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button type="submit" className="bg-slate-800 dark:bg-slate-600 text-white rounded-xl px-4 py-2.5 text-sm hover:bg-slate-900 dark:hover:bg-slate-500 transition-colors">
@@ -136,67 +119,14 @@ export default function ScanNFC() {
           </div>
         )}
 
-        {/* Found state */}
-        {scanState === STATES.FOUND && patient && (
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 p-8 page-enter">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full" />
-                Patient Found
-              </h2>
-              <button onClick={reset} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                <RotateCcw className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl font-semibold">
-                {patient.name.charAt(0)}
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-slate-800 dark:text-slate-100">{patient.name}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{patient.age}y · {patient.blood_type} · {patient.region}</p>
-                <span className="text-xs font-mono bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 rounded-full mt-1 inline-block">{patient.health_id}</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between mb-6 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-              <HealthScoreMeter score={patient.health_score} size={100} />
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Risk Level</p>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${RISK_BADGE_CLASSES[patient.risk_level]}`}>
-                  {patient.risk_level}
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => navigate(`/doctor/patient/${patient.id}`)}
-                className="flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl px-5 py-3 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-              >
-                <Activity className="w-4 h-4" />
-                View Full History
-              </button>
-              <button
-                onClick={() => navigate(`/doctor/add-record/${patient.id}`)}
-                className="flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-xl px-5 py-3 text-sm font-medium hover:bg-indigo-700 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-                Add New Record
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Not found state */}
         {scanState === STATES.NOT_FOUND && (
           <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 p-10 text-center">
             <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-8 h-8 text-red-500" />
             </div>
-            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">Patient Not Found</h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">No patient found for this NFC tag or Health ID</p>
+            <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-2">Patient Link Not Found</h2>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">No patient record matched this NFC token or URL</p>
             <button onClick={reset} className="bg-indigo-600 text-white rounded-xl px-6 py-2.5 text-sm font-medium hover:bg-indigo-700 transition-colors">
               Try Again
             </button>

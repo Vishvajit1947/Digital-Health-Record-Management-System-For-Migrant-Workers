@@ -13,7 +13,7 @@ export function useHealthRecords(workerId) {
       try {
         const { data, error } = await supabase
           .from('health_records')
-          .select('*, doctors(full_name, hospital_name)')
+          .select('*, doctors(hospital_name, user_id, users(full_name))')
           .eq('worker_id', workerId)
           .order('visit_date', { ascending: false })
         if (error) throw error

@@ -30,6 +30,47 @@ export function generateHealthId() {
   return `HW-${year}${num}`
 }
 
+export function slugifyName(name = '') {
+  return String(name)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'patient'
+}
+
+export function buildPatientNfcUrl(token, patientName, origin = window.location.origin) {
+  const safeToken = encodeURIComponent(String(token || '').trim())
+  const nameSlug = slugifyName(patientName)
+  return `${origin}/patient/${safeToken}/${encodeURIComponent(nameSlug)}`
+}
+
+export function extractPatientToken(input = '') {
+  const value = String(input || '').trim()
+  if (!value) return ''
+
+  try {
+    const asUrl = new URL(value)
+    const parts = asUrl.pathname.split('/').filter(Boolean)
+    const patientIndex = parts.indexOf('patient')
+    if (patientIndex >= 0 && parts[patientIndex + 1]) {
+      return decodeURIComponent(parts[patientIndex + 1])
+    }
+  } catch {
+    // Not a valid URL, continue with raw token parsing.
+  }
+
+  const normalized = value.replace(/^\/+|\/+$/g, '')
+  const segments = normalized.split('/')
+  const patientIndex = segments.indexOf('patient')
+  if (patientIndex >= 0 && segments[patientIndex + 1]) {
+    return decodeURIComponent(segments[patientIndex + 1])
+  }
+
+  return decodeURIComponent(value)
+}
+
 // Mock data generators for demo
 export function mockWorker(id = '1') {
   return {

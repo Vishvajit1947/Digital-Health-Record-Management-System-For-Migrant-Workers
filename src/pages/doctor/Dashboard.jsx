@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Users, Activity, ClipboardList, Stethoscope, ScanLine, Search, ExternalLink } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
-import { formatDate } from '../../lib/helpers'
+import { buildPatientNfcUrl, extractPatientToken, formatDate } from '../../lib/helpers'
 import { RISK_BADGE_CLASSES } from '../../lib/constants'
 
 const recentPatients = [
-  { id: '1', name: 'Ravi Kumar Sharma', health_id: 'HW-20240001', last_visit: '2024-03-15', diagnosis: 'Upper Respiratory Infection', risk: 'Low' },
-  { id: '2', name: 'Sunita Devi', health_id: 'HW-20240045', last_visit: '2024-03-15', diagnosis: 'Hypertension', risk: 'Moderate' },
-  { id: '3', name: 'Mohammad Iqbal', health_id: 'HW-20230198', last_visit: '2024-03-14', diagnosis: 'Diabetes Type 2', risk: 'High' },
-  { id: '4', name: 'Anita Kumari', health_id: 'HW-20230412', last_visit: '2024-03-13', diagnosis: 'Anemia', risk: 'Moderate' },
-  { id: '5', name: 'Deepak Verma', health_id: 'HW-20231087', last_visit: '2024-03-12', diagnosis: 'Back Pain', risk: 'Low' },
+  { id: '1', token: 'demo-token-ravi', name: 'Ravi Kumar Sharma', health_id: 'HW-20240001', last_visit: '2024-03-15', diagnosis: 'Upper Respiratory Infection', risk: 'Low' },
+  { id: '2', token: 'demo-token-sunita', name: 'Sunita Devi', health_id: 'HW-20240045', last_visit: '2024-03-15', diagnosis: 'Hypertension', risk: 'Moderate' },
+  { id: '3', token: 'demo-token-iqbal', name: 'Mohammad Iqbal', health_id: 'HW-20230198', last_visit: '2024-03-14', diagnosis: 'Diabetes Type 2', risk: 'High' },
+  { id: '4', token: 'demo-token-anita', name: 'Anita Kumari', health_id: 'HW-20230412', last_visit: '2024-03-13', diagnosis: 'Anemia', risk: 'Moderate' },
+  { id: '5', token: 'demo-token-deepak', name: 'Deepak Verma', health_id: 'HW-20231087', last_visit: '2024-03-12', diagnosis: 'Back Pain', risk: 'Low' },
 ]
 
 export default function DoctorDashboard() {
@@ -19,7 +19,9 @@ export default function DoctorDashboard() {
 
   function handleSearch(e) {
     e.preventDefault()
-    if (searchId.trim()) navigate(`/doctor/patient/${searchId.trim()}`)
+    const token = extractPatientToken(searchId)
+    if (!token) return
+    navigate(`/patient/${encodeURIComponent(token)}`)
   }
 
   return (
@@ -53,18 +55,18 @@ export default function DoctorDashboard() {
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <p className="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-            <Search className="w-5 h-5 text-slate-400" /> Search Patient by ID
+            <Search className="w-5 h-5 text-slate-400" /> Open Patient by NFC URL/Token
           </p>
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
               type="text"
               value={searchId}
               onChange={e => setSearchId(e.target.value)}
-              placeholder="e.g. HW-20240001"
+              placeholder="Paste NFC URL or token"
               className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button type="submit" className="bg-indigo-600 text-white rounded-xl px-4 py-2.5 text-sm hover:bg-indigo-700 transition-colors">
-              Search
+              Open
             </button>
           </form>
         </div>
@@ -93,7 +95,16 @@ export default function DoctorDashboard() {
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${RISK_BADGE_CLASSES[p.risk]}`}>{p.risk}</span>
                   </td>
                   <td className="py-3">
-                    <Link to={`/doctor/patient/${p.id}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">View</Link>
+                    <div className="flex items-center gap-3">
+                      <Link to={`/doctor/patient/${p.id}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">View</Link>
+                      <button
+                        type="button"
+                        onClick={() => navigate(buildPatientNfcUrl(p.token, p.name).replace(window.location.origin, ''))}
+                        className="text-cyan-600 dark:text-cyan-400 hover:underline font-medium"
+                      >
+                        NFC Link
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

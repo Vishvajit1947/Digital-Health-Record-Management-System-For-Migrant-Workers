@@ -1,23 +1,88 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, Pill, Calendar, ShieldCheck, Nfc, ExternalLink } from 'lucide-react'
+import { Activity, Pill, Calendar, ShieldCheck, Nfc, ExternalLink, Copy, Link2 } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
 import HealthScoreMeter from '../../components/shared/HealthScoreMeter'
 import { useAuth } from '../../context/AuthContext'
-import { formatDate, mockWorker, mockHealthRecords, mockPrescriptions } from '../../lib/helpers'
+import { buildPatientNfcUrl, formatDate, mockWorker, mockHealthRecords, mockPrescriptions } from '../../lib/helpers'
 import { RISK_BADGE_CLASSES } from '../../lib/constants'
+import { supabase } from '../../lib/supabase'
+import toast from 'react-hot-toast'
 
 export default function WorkerDashboard() {
   const { user } = useAuth()
   const [worker, setWorker] = useState(null)
   const [records, setRecords] = useState([])
   const [prescriptions, setPrescriptions] = useState([])
+  const [nfcUrl, setNfcUrl] = useState('')
 
   useEffect(() => {
-    setWorker(mockWorker(user?.id))
-    setRecords(mockHealthRecords())
-    setPrescriptions(mockPrescriptions())
+    if (!user?.id) return
+
+    let cancelled = false
+
+    async function loadWorkerData() {
+      try {
+        const { data: workerRow, error: workerErr } = await supabase
+          .from('workers')
+          .select('id, user_id, health_id, date_of_birth, gender, blood_type, region, occupation')
+          .eq('user_id', user.id)
+          .single()
+
+        if (workerErr) throw workerErr
+
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', workerRow.user_id)
+          .single()
+
+        const { data: tokenRow } = await supabase
+          .from('nfc_tokens')
+          .select('token')
+          .eq('worker_id', workerRow.id)
+          .single()
+
+        if (cancelled) return
+
+        const workerData = {
+          ...workerRow,
+          full_name: userRow?.full_name || 'Worker',
+          health_score: 72,
+          risk_level: 'Low',
+        }
+
+        setWorker(workerData)
+        setRecords(mockHealthRecords())
+        setPrescriptions(mockPrescriptions())
+        if (tokenRow?.token) {
+          setNfcUrl(buildPatientNfcUrl(tokenRow.token, workerData.full_name))
+        }
+      } catch {
+        const demoWorker = mockWorker(user.id)
+        setWorker(demoWorker)
+        setRecords(mockHealthRecords())
+        setPrescriptions(mockPrescriptions())
+        setNfcUrl(buildPatientNfcUrl('demo-token', demoWorker.full_name))
+      }
+    }
+
+    loadWorkerData()
+
+    return () => {
+      cancelled = true
+    }
   }, [user])
+
+  async function copyNfcLink() {
+    if (!nfcUrl) return
+    try {
+      await navigator.clipboard.writeText(nfcUrl)
+      toast.success('NFC patient URL copied')
+    } catch {
+      toast.error('Unable to copy NFC URL')
+    }
+  }
 
   if (!worker) return null
 
@@ -58,6 +123,19 @@ export default function WorkerDashboard() {
               <p className="text-xs opacity-70 mb-0.5">Health ID</p>
               <p className="text-sm font-mono font-medium tracking-widest">{worker.health_id}</p>
               <p className="text-xs opacity-70 mt-2">{worker.full_name}</p>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={copyNfcLink}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 text-white px-3 py-2 text-xs font-medium hover:bg-indigo-700 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy NFC URL
+              </button>
+              <span className="inline-flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-700 px-2.5 py-1.5 text-[11px] text-slate-600 dark:text-slate-300 max-w-64 truncate" title={nfcUrl}>
+                <Link2 className="w-3.5 h-3.5" />
+                {nfcUrl || 'NFC URL not available'}
+              </span>
             </div>
           </div>
 

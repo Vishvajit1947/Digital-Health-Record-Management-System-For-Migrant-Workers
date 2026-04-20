@@ -13,7 +13,7 @@ const ROLE_COLORS = {
 
 export default function Navbar({ darkMode, onToggleDark }) {
   const { role, signOut } = useAuth()
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
 
   function handleLang(code) {
@@ -31,7 +31,7 @@ export default function Navbar({ darkMode, onToggleDark }) {
         <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
           <Nfc className="w-5 h-5 text-white" />
         </div>
-        <span className="font-semibold text-slate-800 dark:text-slate-100 text-lg">HealthID</span>
+        <span className="font-semibold text-slate-800 dark:text-slate-100 text-lg">{t('app_name')}</span>
       </div>
 
       {/* Role Badge */}

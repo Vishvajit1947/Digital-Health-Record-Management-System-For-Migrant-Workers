@@ -8,6 +8,8 @@ import RoleGuard from './components/shared/RoleGuard'
 import AppLayout from './components/shared/AppLayout'
 import LoadingSpinner from './components/shared/LoadingSpinner'
 import ErrorBoundary from './components/shared/ErrorBoundary'
+import Home from './pages/Home'
+import PatientAccess from './pages/doctor/PatientAccess'
 
 // Auth pages (eager)
 import Login from './pages/auth/Login'
@@ -75,6 +77,9 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
+              {/* Public NFC patient link */}
+              <Route path="/patient/:token/:patientName?" element={<PatientAccess />} />
+
               {/* Worker routes */}
               <Route path="/worker/dashboard" element={<ProtectedLayout role="worker"><WorkerDashboard /></ProtectedLayout>} />
               <Route path="/worker/records" element={<ProtectedLayout role="worker"><WorkerRecords /></ProtectedLayout>} />
@@ -93,8 +98,8 @@ export default function App() {
               <Route path="/admin/risk-table" element={<ProtectedLayout role="admin"><RiskTable /></ProtectedLayout>} />
 
               {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<Home darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </AuthProvider>
