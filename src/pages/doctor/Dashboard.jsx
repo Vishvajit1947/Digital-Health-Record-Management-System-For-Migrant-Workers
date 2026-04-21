@@ -1,48 +1,112 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Users, Activity, ClipboardList, Stethoscope, ScanLine, Search, ExternalLink } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
-import { buildPatientNfcUrl, extractPatientToken, formatDate } from '../../lib/helpers'
+import LoadingSpinner from '../../components/shared/LoadingSpinner'
+import { formatDate } from '../../lib/helpers'
 import { RISK_BADGE_CLASSES } from '../../lib/constants'
-
-const recentPatients = [
-  { id: '1', token: 'demo-token-ravi', name: 'Ravi Kumar Sharma', health_id: 'HW-20240001', last_visit: '2024-03-15', diagnosis: 'Upper Respiratory Infection', risk: 'Low' },
-  { id: '2', token: 'demo-token-sunita', name: 'Sunita Devi', health_id: 'HW-20240045', last_visit: '2024-03-15', diagnosis: 'Hypertension', risk: 'Moderate' },
-  { id: '3', token: 'demo-token-iqbal', name: 'Mohammad Iqbal', health_id: 'HW-20230198', last_visit: '2024-03-14', diagnosis: 'Diabetes Type 2', risk: 'High' },
-  { id: '4', token: 'demo-token-anita', name: 'Anita Kumari', health_id: 'HW-20230412', last_visit: '2024-03-13', diagnosis: 'Anemia', risk: 'Moderate' },
-  { id: '5', token: 'demo-token-deepak', name: 'Deepak Verma', health_id: 'HW-20231087', last_visit: '2024-03-12', diagnosis: 'Back Pain', risk: 'Low' },
-]
+import { supabase } from '../../lib/supabase'
+import { getWorkerByNfcToken } from '../../lib/queries'
+import toast from 'react-hot-toast'
 
 export default function DoctorDashboard() {
   const [searchId, setSearchId] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [recentPatients, setRecentPatients] = useState([])
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRecentPatients() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const { data, error: recentError } = await supabase
+          .from('health_records')
+          .select('id, worker_id, visit_date, diagnosis, icd10_code, workers(id, health_id, region, user_id, users(full_name))')
+          .order('visit_date', { ascending: false })
+          .limit(8)
+
+        if (recentError) throw recentError
+
+        const normalized = (data || []).map(record => {
+          const worker = Array.isArray(record.workers) ? record.workers[0] : record.workers
+          return {
+            id: record.id,
+            worker_id: worker?.id || record.worker_id,
+            name: worker?.users?.full_name || worker?.health_id || 'Unknown worker',
+            health_id: worker?.health_id || '—',
+            last_visit: record.visit_date,
+            diagnosis: record.diagnosis || '—',
+            risk: 'Low',
+            region: worker?.region || '—',
+          }
+        })
+
+        if (!cancelled) setRecentPatients(normalized)
+      } catch (fetchError) {
+        if (!cancelled) {
+          setError(fetchError.message || 'Unable to load recent patients')
+          setRecentPatients([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadRecentPatients()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const stats = useMemo(() => [
+    { title: 'Patients Today', value: recentPatients.length, icon: Users, color: 'indigo' },
+    { title: 'Total Patients', value: new Set(recentPatients.map(patient => patient.worker_id)).size, icon: Stethoscope, color: 'green' },
+    { title: 'Pending Follow-ups', value: recentPatients.filter(patient => !patient.last_visit).length, icon: ClipboardList, color: 'amber' },
+    { title: 'Records This Week', value: recentPatients.filter(patient => {
+      const visitDate = new Date(patient.last_visit)
+      const daysAgo = (Date.now() - visitDate.getTime()) / 86400000
+      return daysAgo <= 7
+    }).length, icon: Activity, color: 'purple' },
+  ], [recentPatients])
 
   function handleSearch(e) {
     e.preventDefault()
-    const token = extractPatientToken(searchId)
-    if (!token) return
-    navigate(`/patient/${encodeURIComponent(token)}`)
+    const value = searchId.trim()
+    if (!value) return
+    navigate(`/doctor/patient/${encodeURIComponent(value)}`)
+  }
+
+  async function handleOpenNfcToken() {
+    const value = searchId.trim()
+    if (!value) return
+
+    try {
+      const worker = await getWorkerByNfcToken(value)
+      navigate(`/doctor/patient/${encodeURIComponent(worker.id)}`)
+    } catch {
+      toast.error('Patient not found for this NFC ID')
+    }
   }
 
   return (
     <div className="space-y-6 page-enter">
       <div>
         <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Doctor Dashboard</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Overview of your patients and activities</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Live access to patient search, recent records, and clinical activity</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Patients Today" value="8" icon={Users} color="indigo" trend="↑ 2 from yesterday" />
-        <StatCard title="Total Patients" value="342" icon={Stethoscope} color="green" />
-        <StatCard title="Pending Follow-ups" value="14" icon={ClipboardList} color="amber" />
-        <StatCard title="Records This Week" value="23" icon={Activity} color="purple" />
+        {stats.map(stat => <StatCard key={stat.title} title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} />)}
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link to="/doctor/scan"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-6 flex items-center gap-4 transition-colors group card-hover">
+        <Link to="/doctor/scan" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-6 flex items-center gap-4 transition-colors group card-hover">
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
             <ScanLine className="w-7 h-7" />
           </div>
@@ -55,61 +119,64 @@ export default function DoctorDashboard() {
 
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <p className="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-            <Search className="w-5 h-5 text-slate-400" /> Open Patient by NFC URL/Token
+            <Search className="w-5 h-5 text-slate-400" /> Open Patient by Worker ID or NFC ID
           </p>
-          <form onSubmit={handleSearch} className="flex gap-2">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={searchId}
               onChange={e => setSearchId(e.target.value)}
-              placeholder="Paste NFC URL or token"
+              placeholder="Enter worker_id or NFC token"
               className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button type="submit" className="bg-indigo-600 text-white rounded-xl px-4 py-2.5 text-sm hover:bg-indigo-700 transition-colors">
               Open
             </button>
+            <button type="button" onClick={handleOpenNfcToken} className="border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+              Resolve NFC
+            </button>
           </form>
         </div>
       </div>
 
-      {/* Recent Patients */}
+      {loading && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8 flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      )}
+
+      {error && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{error}</div>}
+
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Recent Patients</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-700">
-                {['Name', 'Health ID', 'Last Visit', 'Diagnosis', 'Risk', 'Action'].map(h => (
+                {['Name', 'Health ID', 'Last Visit', 'Diagnosis', 'Region', 'Action'].map(h => (
                   <th key={h} className="text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 pb-3 pr-4">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
-              {recentPatients.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                  <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-200">{p.name}</td>
-                  <td className="py-3 pr-4 font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-transparent">{p.health_id}</td>
-                  <td className="py-3 pr-4 text-slate-600 dark:text-slate-400">{formatDate(p.last_visit)}</td>
-                  <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{p.diagnosis}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${RISK_BADGE_CLASSES[p.risk]}`}>{p.risk}</span>
-                  </td>
+              {recentPatients.map(patient => (
+                <tr key={patient.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-200">{patient.name}</td>
+                  <td className="py-3 pr-4 font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-transparent">{patient.health_id}</td>
+                  <td className="py-3 pr-4 text-slate-600 dark:text-slate-400">{formatDate(patient.last_visit)}</td>
+                  <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{patient.diagnosis}</td>
+                  <td className="py-3 pr-4 text-slate-600 dark:text-slate-400">{patient.region}</td>
                   <td className="py-3">
                     <div className="flex items-center gap-3">
-                      <Link to={`/doctor/patient/${p.id}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">View</Link>
-                      <button
-                        type="button"
-                        onClick={() => navigate(buildPatientNfcUrl(p.token, p.name).replace(window.location.origin, ''))}
-                        className="text-cyan-600 dark:text-cyan-400 hover:underline font-medium"
-                      >
-                        NFC Link
-                      </button>
+                      <Link to={`/doctor/patient/${patient.worker_id}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">View</Link>
+                      <span className="text-cyan-600 dark:text-cyan-400 font-medium">NFC ready</span>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {!loading && recentPatients.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">No data available</p>}
         </div>
       </div>
     </div>

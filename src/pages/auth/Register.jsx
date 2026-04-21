@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Nfc, User, Mail, Lock, Phone, ChevronDown } from 'lucide-react'
+import { Nfc } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
@@ -12,7 +12,7 @@ const SPECIALIZATIONS = ['General Medicine', 'Orthopedics', 'Pulmonology', 'Derm
 export default function Register() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [role, setRole] = useState('worker')
+  const [role, setRole] = useState('')
   const { t } = useTranslation()
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', phone: '',
@@ -28,6 +28,12 @@ export default function Register() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (!role) {
+      toast.error('Please select a role')
+      return
+    }
+
     setLoading(true)
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -81,7 +87,7 @@ export default function Register() {
           const nfcUrl = buildPatientNfcUrl(nfcToken, form.full_name)
           toast.success('Unique NFC URL created for this patient')
           toast(nfcUrl, { duration: 7000 })
-        } else {
+        } else if (role === 'doctor') {
           const { error: docErr } = await supabase.from('doctors').insert({ 
             user_id: userId, 
             license_number: form.license_number || ('DOC-' + Math.floor(Math.random()*10000)), 
@@ -120,11 +126,15 @@ export default function Register() {
             {/* Role selector */}
             <div>
               <label className={labelCls}>{t('register_role_label')}</label>
-              <div className="grid grid-cols-2 gap-3">
-                {['worker', 'doctor'].map(r => (
-                  <button type="button" key={r} onClick={() => setRole(r)}
-                    className={`py-3 rounded-xl text-sm font-medium border transition-colors capitalize ${role === r ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-                    {t(r)}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { value: 'worker', label: 'Worker' },
+                  { value: 'doctor', label: 'Doctor' },
+                  { value: 'admin', label: 'Administrator' },
+                ].map(({ value, label }) => (
+                  <button type="button" key={value} onClick={() => setRole(value)}
+                    className={`py-3 rounded-xl text-sm font-medium border transition-colors capitalize ${role === value ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                    {label}
                   </button>
                 ))}
               </div>

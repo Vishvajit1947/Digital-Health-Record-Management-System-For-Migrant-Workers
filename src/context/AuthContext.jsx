@@ -68,6 +68,7 @@ export function AuthProvider({ children }) {
   async function signOut() {
     await supabase.auth.signOut()
     localStorage.removeItem('demo_role')
+    localStorage.removeItem('admin_portal_access')
     setUser(null)
     setRole(null)
     setSession(null)

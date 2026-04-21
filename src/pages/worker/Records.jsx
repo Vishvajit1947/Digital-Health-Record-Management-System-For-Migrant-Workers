@@ -1,25 +1,66 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, FileText, Search, Calendar } from 'lucide-react'
-import { formatDate, mockHealthRecords } from '../../lib/helpers'
-
-const records = [
-  ...mockHealthRecords(),
-  { id: '4', date: '2023-12-01', doctor: 'Dr. Kavita Rao', hospital: 'Apollo Clinic', diagnosis: 'Malaria (mild)', icd10: 'B50.0', notes: 'Antimalarial treatment started.', prescriptions: [{drug: 'Chloroquine', dosage: '250mg', frequency: 'Twice daily', duration: 7}] },
-  { id: '5', date: '2023-11-12', doctor: 'Dr. Arun Singh', hospital: 'Primary Health Center', diagnosis: 'Vitamin D deficiency', icd10: 'E55.9', notes: 'Supplements prescribed for 3 months.', prescriptions: [{drug: 'Vitamin D3', dosage: '60,000 IU', frequency: 'Once weekly', duration: 90}] },
-]
+import LoadingSpinner from '../../components/shared/LoadingSpinner'
+import { useAuth } from '../../context/AuthContext'
+import { formatDate } from '../../lib/helpers'
+import { getWorkerByUserId, getHealthRecords } from '../../lib/queries'
 
 export default function WorkerRecords() {
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [records, setRecords] = useState([])
   const [expanded, setExpanded] = useState(null)
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
-  const filtered = records.filter(r => {
-    const matchSearch = !search || r.diagnosis.toLowerCase().includes(search.toLowerCase()) || r.doctor.toLowerCase().includes(search.toLowerCase())
-    const matchFrom = !dateFrom || r.date >= dateFrom
-    const matchTo = !dateTo || r.date <= dateTo
+  useEffect(() => {
+    if (!user?.id) return
+
+    let cancelled = false
+
+    async function load() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const worker = await getWorkerByUserId(user.id)
+        const healthRecords = await getHealthRecords(worker.id)
+        if (!cancelled) setRecords(healthRecords)
+      } catch (fetchError) {
+        if (!cancelled) {
+          setError(fetchError.message || 'Unable to load records')
+          setRecords([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
+  const filtered = useMemo(() => records.filter(record => {
+    const doctorName = record.doctors?.users?.full_name || ''
+    const matchSearch = !search || String(record.diagnosis || '').toLowerCase().includes(search.toLowerCase()) || doctorName.toLowerCase().includes(search.toLowerCase())
+    const visitDate = record.visit_date ? new Date(record.visit_date).toISOString().slice(0, 10) : ''
+    const matchFrom = !dateFrom || visitDate >= dateFrom
+    const matchTo = !dateTo || visitDate <= dateTo
     return matchSearch && matchFrom && matchTo
-  })
+  }), [records, search, dateFrom, dateTo])
+
+  if (loading) {
+    return (
+      <div className="min-h-[40vh] flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 page-enter">
@@ -28,7 +69,6 @@ export default function WorkerRecords() {
         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Complete timeline of your medical history</p>
       </div>
 
-      {/* Filter bar */}
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4">
         <div className="flex flex-wrap gap-3">
           <div className="flex items-center gap-2 flex-1 min-w-48">
@@ -43,21 +83,20 @@ export default function WorkerRecords() {
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-400" />
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-              className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             <span className="text-slate-400 text-sm">to</span>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-              className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
       </div>
 
-      {/* Timeline */}
+      {error && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{error}</div>}
+
       <div className="space-y-3">
-        {filtered.map(r => (
-          <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden card-hover">
+        {filtered.map(record => (
+          <div key={record.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden card-hover">
             <button
-              onClick={() => setExpanded(expanded === r.id ? null : r.id)}
+              onClick={() => setExpanded(expanded === record.id ? null : record.id)}
               className="w-full flex items-center justify-between p-5 text-left"
             >
               <div className="flex items-center gap-4">
@@ -65,38 +104,39 @@ export default function WorkerRecords() {
                   <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">{r.diagnosis}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{formatDate(r.date)} · {r.doctor} · {r.hospital}</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">{record.diagnosis || 'Diagnosis not available'}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{formatDate(record.visit_date)} · {record.doctors?.users?.full_name || 'Doctor'} · {record.doctors?.hospital_name || 'Hospital not set'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-lg hidden sm:inline">{r.icd10}</span>
-                {expanded === r.id ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-lg hidden sm:inline">{record.icd10_code || 'N/A'}</span>
+                {expanded === record.id ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
               </div>
             </button>
 
-            {expanded === r.id && (
+            {expanded === record.id && (
               <div className="border-t border-slate-100 dark:border-slate-700 p-5 space-y-4 bg-slate-50/50 dark:bg-slate-800/50">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Notes</p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300">{r.notes || '—'}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300">{record.notes || 'No notes available'}</p>
                 </div>
-                {r.prescriptions?.length > 0 && (
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Prescriptions from this visit</p>
-                    <div className="flex flex-wrap gap-2">
-                      {r.prescriptions.map((p, i) => (
-                        <div key={i} className="bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600 rounded-xl px-4 py-2 text-sm">
-                          <span className="font-medium text-slate-800 dark:text-slate-200">{p.drug}</span>
-                          <span className="text-slate-500 dark:text-slate-400"> · {p.dosage} · {p.frequency} · {p.duration}d</span>
-                        </div>
-                      ))}
-                    </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Blood pressure</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-200">{record.blood_pressure || '—'}</p>
                   </div>
-                )}
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Lab Reports</p>
-                  <p className="text-sm text-slate-400 dark:text-slate-500 italic">No lab reports attached.</p>
+                  <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Temperature</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-200">{record.temperature ?? '—'}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Weight</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-200">{record.weight ?? '—'}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Record ID</p>
+                    <p className="font-medium text-slate-700 dark:text-slate-200 font-mono text-xs break-all">{record.id}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -105,7 +145,7 @@ export default function WorkerRecords() {
         {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>No records found</p>
+            <p>No data available</p>
           </div>
         )}
       </div>

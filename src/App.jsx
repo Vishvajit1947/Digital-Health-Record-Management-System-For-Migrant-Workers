@@ -1,7 +1,8 @@
 import { Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
+import { useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import './lib/i18n'
 
@@ -15,6 +16,7 @@ import PatientAccess from './pages/doctor/PatientAccess'
 // Auth pages (eager)
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
+import AdminLogin from './pages/admin/Login'
 
 // Worker pages
 import WorkerDashboard from './pages/worker/Dashboard'
@@ -32,6 +34,7 @@ import AddRecord from './pages/doctor/AddRecord'
 import AdminDashboard from './pages/admin/Dashboard'
 import Analytics from './pages/admin/Analytics'
 import RiskTable from './pages/admin/RiskTable'
+import WorkerDetail from './pages/admin/WorkerDetail'
 
 function ProtectedLayout({ role, children }) {
   return (
@@ -41,6 +44,30 @@ function ProtectedLayout({ role, children }) {
       </AppLayout>
     </RoleGuard>
   )
+}
+
+function AdminRouteGuard({ children }) {
+  const { session, role, loading } = useAuth()
+  const location = useLocation()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface dark:bg-slate-900">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <Navigate to="/admin/login" state={{ from: location }} replace />
+  }
+
+  const simulatedAdminAccess = localStorage.getItem('admin_portal_access') === 'true'
+  if (role !== 'admin' && !simulatedAdminAccess) {
+    return <Navigate to="/admin/login" state={{ from: location }} replace />
+  }
+
+  return <AppLayout>{children}</AppLayout>
 }
 
 export default function App() {
@@ -62,26 +89,30 @@ export default function App() {
                 {/* Auth */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/admin/login" element={<AdminLogin />} />
 
                 {/* Public NFC patient link */}
                 <Route path="/patient/:token/:patientName?" element={<PatientAccess />} />
 
                 {/* Worker routes */}
+                <Route path="/dashboard/worker" element={<Navigate to="/worker/dashboard" replace />} />
                 <Route path="/worker/dashboard" element={<ProtectedLayout role="worker"><WorkerDashboard /></ProtectedLayout>} />
                 <Route path="/worker/records" element={<ProtectedLayout role="worker"><WorkerRecords /></ProtectedLayout>} />
                 <Route path="/worker/prescriptions" element={<ProtectedLayout role="worker"><WorkerPrescriptions /></ProtectedLayout>} />
                 <Route path="/worker/notifications" element={<ProtectedLayout role="worker"><WorkerNotifications /></ProtectedLayout>} />
 
                 {/* Doctor routes */}
+                <Route path="/dashboard/doctor" element={<Navigate to="/doctor/dashboard" replace />} />
                 <Route path="/doctor/dashboard" element={<ProtectedLayout role="doctor"><DoctorDashboard /></ProtectedLayout>} />
                 <Route path="/doctor/scan" element={<ProtectedLayout role="doctor"><ScanNFC /></ProtectedLayout>} />
                 <Route path="/doctor/patient/:id" element={<ProtectedLayout role="doctor"><PatientDetail /></ProtectedLayout>} />
                 <Route path="/doctor/add-record/:patientId" element={<ProtectedLayout role="doctor"><AddRecord /></ProtectedLayout>} />
 
                 {/* Admin routes */}
-                <Route path="/admin/dashboard" element={<ProtectedLayout role="admin"><AdminDashboard /></ProtectedLayout>} />
-                <Route path="/admin/analytics" element={<ProtectedLayout role="admin"><Analytics /></ProtectedLayout>} />
-                <Route path="/admin/risk-table" element={<ProtectedLayout role="admin"><RiskTable /></ProtectedLayout>} />
+                <Route path="/admin/dashboard" element={<AdminRouteGuard><AdminDashboard /></AdminRouteGuard>} />
+                <Route path="/admin/analytics" element={<AdminRouteGuard><Analytics /></AdminRouteGuard>} />
+                <Route path="/admin/risk-table" element={<AdminRouteGuard><RiskTable /></AdminRouteGuard>} />
+                <Route path="/admin/worker/:id" element={<AdminRouteGuard><WorkerDetail /></AdminRouteGuard>} />
 
                 {/* Default redirect */}
                 <Route path="/" element={<Home />} />

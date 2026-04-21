@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Upload, CheckCircle, Thermometer, Weight, Activity, Heart } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
 import { calculateBMI } from '../../lib/helpers'
+import { addHealthRecord } from '../../lib/queries'
+import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 
 const FREQUENCIES = ['Once daily', 'Twice daily', 'Thrice daily', 'Four times daily', 'As needed', 'After meals', 'Before meals']
@@ -38,49 +39,45 @@ export default function AddRecord() {
     setLoading(true)
 
     try {
-      const { data: record, error: recErr } = await supabase.from('health_records').insert({
+      const prescriptionsPayload = prescriptions.filter(p => p.drug.trim()).map(p => ({
+        drug_name: p.drug,
+        dosage: p.dosage,
+        frequency: p.frequency,
+        duration_days: parseInt(p.duration, 10) || 0,
+        is_active: true,
+      }))
+
+      const uploadedReports = []
+      for (const file of files) {
+        const path = `${patientId}/${Date.now()}_${file.name}`
+        const { error: uploadError } = await supabase.storage.from('lab-reports').upload(path, file)
+        if (uploadError) throw uploadError
+        const { data: publicUrlData } = supabase.storage.from('lab-reports').getPublicUrl(path)
+        uploadedReports.push({
+          report_type: file.name,
+          file_url: publicUrlData.publicUrl,
+        })
+      }
+
+      const record = await addHealthRecord({
         worker_id: patientId,
-        visit_date: new Date().toISOString(),
         diagnosis: diagnosis.text,
         icd10_code: diagnosis.icd10,
         notes: diagnosis.notes,
-        bp_systolic: vitals.bp_sys || null,
-        bp_diastolic: vitals.bp_dia || null,
+        blood_pressure: [vitals.bp_sys, vitals.bp_dia].filter(Boolean).join('/') || null,
         temperature: vitals.temp || null,
         weight: vitals.weight || null,
-        bmi: bmi,
-      }).select().single()
+        visit_date: new Date().toISOString(),
+        prescriptions: prescriptionsPayload,
+        reports: uploadedReports,
+      })
 
-      if (recErr) throw recErr
-
-      // Insert prescriptions
-      const validPresc = prescriptions.filter(p => p.drug.trim())
-      if (validPresc.length > 0) {
-        await supabase.from('prescriptions').insert(
-          validPresc.map(p => ({ worker_id: patientId, record_id: record.id, drug_name: p.drug, dosage: p.dosage, frequency: p.frequency, duration_days: parseInt(p.duration) || 0, status: 'Active' }))
-        )
-      }
-
-      // Upload files
-      for (const file of files) {
-        const path = `${patientId}/${Date.now()}_${file.name}`
-        const { data: upload } = await supabase.storage.from('lab-reports').upload(path, file)
-        if (upload) {
-          await supabase.from('lab_reports').insert({ worker_id: patientId, record_id: record.id, file_name: file.name, file_url: path })
-        }
-      }
-
-      // Notify worker (best effort)
-      try {
-        await fetch('/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ worker_id: patientId, record_id: record.id }) })
-      } catch { /* non-blocking */ }
+      if (!record?.id) throw new Error('Record save failed')
 
       toast.success('Record saved successfully!')
       navigate(`/doctor/patient/${patientId}`)
     } catch (err) {
-      // Demo mode — just show success
-      toast.success('Record saved! (demo mode)')
-      navigate(`/doctor/patient/${patientId}`)
+      toast.error(err.message || 'Unable to save record')
     } finally {
       setLoading(false)
     }

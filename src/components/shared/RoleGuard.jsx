@@ -15,7 +15,7 @@ export default function RoleGuard({ role, children }) {
 
   if (!session) return <Navigate to="/login" replace />
   if (role && userRole !== role) {
-    const redirectMap = { worker: '/worker/dashboard', doctor: '/doctor/dashboard', admin: '/admin/dashboard' }
+    const redirectMap = { worker: '/dashboard/worker', doctor: '/dashboard/doctor', admin: '/admin/dashboard' }
     return <Navigate to={redirectMap[userRole] || '/login'} replace />
   }
 

@@ -1,20 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Activity, Pill, Calendar, ShieldCheck, Nfc, ExternalLink, Copy, Link2 } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
 import HealthScoreMeter from '../../components/shared/HealthScoreMeter'
+import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
-import { buildPatientNfcUrl, formatDate, mockWorker, mockHealthRecords, mockPrescriptions } from '../../lib/helpers'
+import { buildPatientNfcUrl, formatDate, getHealthScoreColor } from '../../lib/helpers'
 import { RISK_BADGE_CLASSES } from '../../lib/constants'
 import { supabase } from '../../lib/supabase'
+import {
+  getWorkerByUserId,
+  getHealthRecords,
+  getWorkerPrescriptions,
+  getWorkerReports,
+  getWorkerLatestHealthScore,
+} from '../../lib/queries'
 import toast from 'react-hot-toast'
 
 export default function WorkerDashboard() {
   const { user } = useAuth()
   const [worker, setWorker] = useState(null)
+  const [workerId, setWorkerId] = useState(null)
   const [records, setRecords] = useState([])
   const [prescriptions, setPrescriptions] = useState([])
+  const [reports, setReports] = useState([])
   const [nfcUrl, setNfcUrl] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!user?.id) return
@@ -22,48 +34,45 @@ export default function WorkerDashboard() {
     let cancelled = false
 
     async function loadWorkerData() {
+      setLoading(true)
+      setError('')
+
       try {
-        const { data: workerRow, error: workerErr } = await supabase
-          .from('workers')
-          .select('id, user_id, health_id, date_of_birth, gender, blood_type, region, occupation')
-          .eq('user_id', user.id)
-          .single()
-
-        if (workerErr) throw workerErr
-
-        const { data: userRow } = await supabase
-          .from('users')
-          .select('full_name')
-          .eq('id', workerRow.user_id)
-          .single()
-
-        const { data: tokenRow } = await supabase
-          .from('nfc_tokens')
-          .select('token')
-          .eq('worker_id', workerRow.id)
-          .single()
+        const workerData = await getWorkerByUserId(user.id)
+        const [healthRecords, prescriptionRows, reportRows, latestScore] = await Promise.all([
+          getHealthRecords(workerData.id),
+          getWorkerPrescriptions(workerData.id),
+          getWorkerReports(workerData.id),
+          getWorkerLatestHealthScore(workerData.id),
+        ])
 
         if (cancelled) return
 
-        const workerData = {
-          ...workerRow,
-          full_name: userRow?.full_name || 'Worker',
-          health_score: 72,
-          risk_level: 'Low',
+        const mergedWorker = {
+          ...workerData,
+          health_score: latestScore?.score != null ? Number(latestScore.score) : workerData.health_score ?? null,
+          risk_level: workerData.risk_level || 'Low',
+          full_name: workerData.name,
         }
 
-        setWorker(workerData)
-        setRecords(mockHealthRecords())
-        setPrescriptions(mockPrescriptions())
-        if (tokenRow?.token) {
-          setNfcUrl(buildPatientNfcUrl(tokenRow.token, workerData.full_name))
+        setWorker(mergedWorker)
+        setWorkerId(workerData.id)
+        setRecords(healthRecords)
+        setPrescriptions(prescriptionRows)
+        setReports(reportRows)
+        setNfcUrl(workerData.nfc_token ? buildPatientNfcUrl(workerData.nfc_token, mergedWorker.full_name) : workerData.id)
+      } catch (fetchError) {
+        if (!cancelled) {
+          setError(fetchError.message || 'Unable to load worker data')
+          setWorker(null)
+          setWorkerId(null)
+          setRecords([])
+          setPrescriptions([])
+          setReports([])
+          setNfcUrl('')
         }
-      } catch {
-        const demoWorker = mockWorker(user.id)
-        setWorker(demoWorker)
-        setRecords(mockHealthRecords())
-        setPrescriptions(mockPrescriptions())
-        setNfcUrl(buildPatientNfcUrl('demo-token', demoWorker.full_name))
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
 
@@ -73,6 +82,46 @@ export default function WorkerDashboard() {
       cancelled = true
     }
   }, [user])
+
+  useEffect(() => {
+    if (!workerId) return undefined
+
+    const reload = async () => {
+      try {
+        const workerData = await getWorkerByUserId(user.id)
+        const [healthRecords, prescriptionRows, reportRows, latestScore] = await Promise.all([
+          getHealthRecords(workerData.id),
+          getWorkerPrescriptions(workerData.id),
+          getWorkerReports(workerData.id),
+          getWorkerLatestHealthScore(workerData.id),
+        ])
+
+        setWorker({
+          ...workerData,
+          health_score: latestScore?.score != null ? Number(latestScore.score) : workerData.health_score ?? null,
+          risk_level: workerData.risk_level || 'Low',
+          full_name: workerData.name,
+        })
+        setRecords(healthRecords)
+        setPrescriptions(prescriptionRows)
+        setReports(reportRows)
+        setNfcUrl(workerData.nfc_token ? buildPatientNfcUrl(workerData.nfc_token, workerData.name) : workerData.id)
+      } catch {
+        // Keep the last known data visible if realtime refresh fails.
+      }
+    }
+
+    const channel = supabase
+      .channel(`worker-portal-${workerId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'health_records', filter: `worker_id=eq.${workerId}` }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'prescriptions', filter: `worker_id=eq.${workerId}` }, reload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lab_reports', filter: `worker_id=eq.${workerId}` }, reload)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [workerId, user?.id])
 
   async function copyNfcLink() {
     if (!nfcUrl) return
@@ -84,9 +133,28 @@ export default function WorkerDashboard() {
     }
   }
 
-  if (!worker) return null
+  const activePrescriptions = useMemo(() => prescriptions.filter(p => p.is_active !== false), [prescriptions])
+  const recentRecords = useMemo(() => records.slice(0, 5), [records])
 
-  const activePrescriptions = prescriptions.filter(p => p.status === 'Active')
+  if (loading) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error || !worker) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+        <h1 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Worker Dashboard</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{error || 'No data available'}</p>
+      </div>
+    )
+  }
+
+  const latestVisit = recentRecords[0]?.visit_date || null
+  const scoreColor = getHealthScoreColor(Number(worker.health_score || 0))
 
   return (
     <div className="space-y-6 page-enter">
@@ -123,6 +191,7 @@ export default function WorkerDashboard() {
               <p className="text-xs opacity-70 mb-0.5">Health ID</p>
               <p className="text-sm font-mono font-medium tracking-widest">{worker.health_id}</p>
               <p className="text-xs opacity-70 mt-2">{worker.full_name}</p>
+              <p className="text-[11px] opacity-70 mt-1">{worker.nfc_token ? 'NFC linked' : 'No NFC token linked'}</p>
             </div>
             <div className="mt-3 flex items-center gap-2">
               <button
@@ -134,14 +203,15 @@ export default function WorkerDashboard() {
               </button>
               <span className="inline-flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-700 px-2.5 py-1.5 text-[11px] text-slate-600 dark:text-slate-300 max-w-64 truncate" title={nfcUrl}>
                 <Link2 className="w-3.5 h-3.5" />
-                {nfcUrl || 'NFC URL not available'}
+                {nfcUrl || worker.id}
               </span>
             </div>
           </div>
 
           {/* Health score */}
           <div className="md:ml-4">
-            <HealthScoreMeter score={worker.health_score} size={130} />
+            <HealthScoreMeter score={Number(worker.health_score || 0)} size={130} />
+            <p className="mt-2 text-center text-xs font-medium" style={{ color: scoreColor }}>Live data</p>
           </div>
         </div>
       </div>
@@ -150,11 +220,11 @@ export default function WorkerDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard title="Total Visits" value={records.length} icon={Activity} color="indigo" />
         <StatCard title="Active Prescriptions" value={activePrescriptions.length} icon={Pill} color="green" />
-        <StatCard title="Last Visit" value={formatDate(records[0]?.date)} icon={Calendar} color="amber" />
+        <StatCard title="Last Visit" value={formatDate(latestVisit)} icon={Calendar} color="amber" />
         <StatCard
           title="Health Risk Level"
           value={
-            <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${RISK_BADGE_CLASSES[worker.risk_level]}`}>
+            <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${RISK_BADGE_CLASSES[worker.risk_level] || 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>
               {worker.risk_level}
             </span>
           }
@@ -181,13 +251,13 @@ export default function WorkerDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
-              {records.map(r => (
+              {recentRecords.map(r => (
                 <tr key={r.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                  <td className="py-3 pr-4 text-slate-600 dark:text-slate-400">{formatDate(r.date)}</td>
-                  <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{r.doctor}</td>
+                  <td className="py-3 pr-4 text-slate-600 dark:text-slate-400">{formatDate(r.visit_date)}</td>
+                  <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{r.doctors?.users?.full_name || 'Doctor'}</td>
                   <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{r.diagnosis}</td>
                   <td className="py-3 pr-4">
-                    <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-lg">{r.icd10}</span>
+                    <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-lg">{r.icd10_code || 'N/A'}</span>
                   </td>
                   <td className="py-3">
                     <button className="text-indigo-600 dark:text-indigo-400 hover:underline text-sm font-medium">View</button>
@@ -206,16 +276,33 @@ export default function WorkerDashboard() {
           <Link to="/worker/prescriptions" className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">View all</Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {activePrescriptions.map(p => (
+          {activePrescriptions.slice(0, 6).map(p => (
             <div key={p.id} className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold text-slate-800 dark:text-slate-100">{p.drug}</h4>
-                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">{p.status}</span>
+                <h4 className="font-semibold text-slate-800 dark:text-slate-100">{p.drug_name}</h4>
+                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">{p.is_active === false ? 'Inactive' : 'Active'}</span>
               </div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{p.dosage} · {p.frequency}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{p.duration} days</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{p.dosage || '—'} · {p.frequency || '—'}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{p.duration_days || 0} days</p>
             </div>
           ))}
+          {activePrescriptions.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>}
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Reports</h3>
+          <span className="text-sm text-slate-500 dark:text-slate-400">{reports.length} total</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {reports.map(report => (
+            <a key={report.id} href={report.file_url} target="_blank" rel="noreferrer" className="border border-slate-100 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors">
+              <h4 className="font-semibold text-slate-800 dark:text-slate-100">{report.report_type || 'Lab report'}</h4>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Uploaded {formatDate(report.uploaded_at)}</p>
+            </a>
+          ))}
+          {reports.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>}
         </div>
       </div>
     </div>

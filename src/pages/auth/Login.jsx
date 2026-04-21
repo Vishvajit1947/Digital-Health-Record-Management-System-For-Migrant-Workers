@@ -15,7 +15,7 @@ export default function Login() {
   const location = useLocation()
   const { t, i18n } = useTranslation()
 
-  const ROLE_REDIRECT = { worker: '/worker/dashboard', doctor: '/doctor/dashboard', admin: '/admin/dashboard' }
+  const ROLE_REDIRECT = { worker: '/dashboard/worker', doctor: '/dashboard/doctor', admin: '/admin/dashboard' }
   const intendedPath = location.state?.from?.pathname
 
   function getRedirectTarget(currentRole) {
