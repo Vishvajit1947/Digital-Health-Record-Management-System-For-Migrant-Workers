@@ -1,7 +1,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import en from '../i18n/en.json'
-import hi from '../i18n/hi.json'
+import en from '../locales/en.json'
+import hi from '../locales/hi.json'
 import mr from '../i18n/mr.json'
 import ta from '../i18n/ta.json'
 

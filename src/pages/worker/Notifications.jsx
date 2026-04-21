@@ -4,6 +4,7 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { formatDate } from '../../lib/helpers'
 import { getWorkerByUserId, getHealthRecords, getWorkerPrescriptions, getWorkerReports } from '../../lib/queries'
+import { useTranslation } from 'react-i18next'
 
 const iconMap = {
   info: { icon: Info, bg: 'bg-blue-50 dark:bg-blue-900/30', color: 'text-blue-600 dark:text-blue-400' },
@@ -12,6 +13,7 @@ const iconMap = {
 }
 
 export default function WorkerNotifications() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -38,24 +40,35 @@ export default function WorkerNotifications() {
           ...records.slice(0, 3).map(record => ({
             id: `record-${record.id}`,
             type: 'info',
-            title: 'New health record',
-            message: `${record.doctors?.users?.full_name || 'Your doctor'} recorded ${record.diagnosis || 'a new visit'} on ${formatDate(record.visit_date)}.`,
+            title: t('notification_new_record'),
+            message: t('notification_new_record_message', {
+              doctor: record.doctors?.users?.full_name || t('your_doctor'),
+              diagnosis: record.diagnosis || t('new_visit'),
+              date: formatDate(record.visit_date),
+            }),
             date: record.visit_date,
             read: false,
           })),
           ...prescriptions.slice(0, 3).map(prescription => ({
             id: `prescription-${prescription.id}`,
             type: prescription.is_active === false ? 'success' : 'alert',
-            title: prescription.is_active === false ? 'Prescription completed' : 'Active prescription',
-            message: `${prescription.drug_name} (${prescription.dosage || 'dosage not set'}) is ${prescription.is_active === false ? 'completed' : 'active'}.`,
+            title: prescription.is_active === false ? t('notification_prescription_completed') : t('notification_active_prescription'),
+            message: t('notification_prescription_message', {
+              drug: prescription.drug_name,
+              dosage: prescription.dosage || t('dosage_not_set'),
+              status: prescription.is_active === false ? t('completed') : t('active'),
+            }),
             date: prescription.issued_at,
             read: true,
           })),
           ...reports.slice(0, 3).map(report => ({
             id: `report-${report.id}`,
             type: 'success',
-            title: 'Lab report uploaded',
-            message: `${report.report_type || 'A lab report'} was uploaded on ${formatDate(report.uploaded_at)}.`,
+            title: t('notification_lab_report_uploaded'),
+            message: t('notification_lab_report_message', {
+              report: report.report_type || t('lab_report'),
+              date: formatDate(report.uploaded_at),
+            }),
             date: report.uploaded_at,
             read: true,
           })),
@@ -64,7 +77,7 @@ export default function WorkerNotifications() {
         if (!cancelled) setItems(derived)
       } catch (fetchError) {
         if (!cancelled) {
-          setError(fetchError.message || 'Unable to load notifications')
+          setError(fetchError.message || t('unable_load_notifications'))
           setItems([])
         }
       } finally {
@@ -90,16 +103,16 @@ export default function WorkerNotifications() {
   }
 
   return (
-    <div className="space-y-6 page-enter">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 page-enter leading-relaxed">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Notifications</h1>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{t('notifications')}</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            {unread > 0 ? `${unread} unread notification${unread > 1 ? 's' : ''}` : 'All caught up!'}
+            {unread > 0 ? t('unread_notifications', { count: unread }) : t('all_caught_up')}
           </p>
         </div>
         {unread > 0 && (
-          <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Mark all as read</button>
+          <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">{t('mark_all_read')}</button>
         )}
       </div>
 
@@ -118,7 +131,7 @@ export default function WorkerNotifications() {
                   <p className={`font-medium text-sm ${item.read ? 'text-slate-700 dark:text-slate-300' : 'text-slate-900 dark:text-slate-100'}`}>{item.title}</p>
                   {!item.read && <span className="w-2 h-2 bg-indigo-500 rounded-full mt-1.5 shrink-0" />}
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{item.message}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed break-words">{item.message}</p>
                 <div className="flex items-center gap-1 mt-2 text-xs text-slate-400 dark:text-slate-500">
                   <Calendar className="w-3.5 h-3.5" />
                   {formatDate(item.date)}
@@ -127,7 +140,7 @@ export default function WorkerNotifications() {
             </div>
           )
         })}
-        {items.length === 0 && <div className="text-sm text-slate-500 dark:text-slate-400">No data available</div>}
+        {items.length === 0 && <div className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</div>}
       </div>
     </div>
   )

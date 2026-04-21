@@ -9,10 +9,10 @@ export default function StatCard({ title, value, icon: Icon, color = 'indigo', t
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 card-hover">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-2">{title}</p>
-          <p className="text-3xl font-semibold text-slate-800 dark:text-slate-100">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide leading-relaxed text-slate-500 dark:text-slate-400 font-medium mb-2 break-words">{title}</p>
+          <p className="text-3xl font-semibold text-slate-800 dark:text-slate-100 break-words">{value}</p>
           {trend && (
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{trend}</p>
           )}

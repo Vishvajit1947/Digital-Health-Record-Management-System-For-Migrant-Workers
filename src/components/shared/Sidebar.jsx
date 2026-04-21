@@ -43,9 +43,9 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
-                {user?.full_name || 'User'}
+                {user?.full_name || t('user')}
               </p>
-              <p className="text-xs text-slate-400 capitalize">{role}</p>
+              <p className="text-xs text-slate-400 capitalize">{role ? t(role) : ''}</p>
             </div>
           </div>
         </div>

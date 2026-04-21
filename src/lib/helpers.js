@@ -24,6 +24,22 @@ export function getRiskFromScore(score) {
   return 'Critical'
 }
 
+export function getRiskLevelKey(level) {
+  const normalized = String(level || '').trim().toLowerCase()
+  if (normalized === 'low') return 'risk_low'
+  if (normalized === 'moderate') return 'risk_moderate'
+  if (normalized === 'high') return 'risk_high'
+  return 'risk_critical'
+}
+
+export function getDiagnosisStatusKey(status) {
+  const normalized = String(status || '').trim().toLowerCase()
+  if (normalized === 'improving') return 'diagnosis_improving'
+  if (normalized === 'stable') return 'diagnosis_stable'
+  if (normalized === 'critical') return 'diagnosis_critical'
+  return null
+}
+
 export function generateHealthId() {
   const year = new Date().getFullYear()
   const num = Math.floor(Math.random() * 90000) + 10000

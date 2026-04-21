@@ -3,8 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
+import { useTranslation } from 'react-i18next'
 
 export default function AdminLogin() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -28,10 +30,10 @@ export default function AdminLogin() {
     try {
       await signIn(email, password)
       localStorage.setItem('admin_portal_access', 'true')
-      toast.success('Admin access granted')
+      toast.success(t('admin_access_granted'))
       navigate('/admin/dashboard', { replace: true })
     } catch (error) {
-      toast.error(error.message || 'Admin login failed')
+      toast.error(error.message || t('admin_login_failed'))
     } finally {
       setLoading(false)
     }
@@ -40,7 +42,7 @@ export default function AdminLogin() {
   function handleDemoAdmin() {
     demoLogin('admin')
     localStorage.setItem('admin_portal_access', 'true')
-    toast.success('Entered admin portal in demo mode')
+    toast.success(t('admin_demo_entered'))
     navigate('/admin/dashboard', { replace: true })
   }
 
@@ -51,13 +53,13 @@ export default function AdminLogin() {
           <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Admin Login</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to open the admin portal</p>
+          <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{t('admin_login')}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{t('admin_login_subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-1.5">Email</label>
+            <label className="block text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-1.5">{t('email')}</label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -72,7 +74,7 @@ export default function AdminLogin() {
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-1.5">Password</label>
+            <label className="block text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-1.5">{t('password')}</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -91,7 +93,7 @@ export default function AdminLogin() {
             disabled={loading}
             className="w-full bg-indigo-600 text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60"
           >
-            {loading ? 'Signing in...' : 'Login as Admin'}
+            {loading ? t('login_signing_in') : t('login_admin')}
           </button>
         </form>
 
@@ -99,13 +101,13 @@ export default function AdminLogin() {
           onClick={handleDemoAdmin}
           className="w-full mt-3 border border-slate-200 dark:border-slate-600 rounded-xl px-5 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
         >
-          Continue with simulated admin access
+          {t('continue_simulated_admin')}
         </button>
 
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center mt-5">
-          Need a user account?{' '}
+          {t('need_user_account')}{' '}
           <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
-            Register
+            {t('register')}
           </Link>
         </p>
       </div>

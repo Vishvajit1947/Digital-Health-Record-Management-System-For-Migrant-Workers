@@ -7,6 +7,8 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer
 } from 'recharts'
 import { getAdminDashboardStats, getDiseaseTrends, getRiskDistribution } from '../../lib/queries'
+import { useTranslation } from 'react-i18next'
+import { getRiskLevelKey } from '../../lib/helpers'
 
 const RISK_COLORS = { Low: '#16A34A', Moderate: '#D97706', High: '#DC2626', Critical: '#7C3AED' }
 
@@ -19,6 +21,7 @@ function CustomLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
 }
 
 export default function AdminDashboard() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [stats, setStats] = useState({
@@ -49,7 +52,7 @@ export default function AdminDashboard() {
         setDiseaseTrends(trendRows)
         setRiskDistribution(riskRows)
       } catch (fetchError) {
-        if (!cancelled) setError(fetchError.message || 'Unable to load dashboard data')
+        if (!cancelled) setError(fetchError.message || t('unable_load_dashboard_data'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -70,18 +73,18 @@ export default function AdminDashboard() {
   )
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-6 page-enter leading-relaxed">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Admin Dashboard</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">System-wide health metrics overview</p>
+        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{t('admin_dashboard')}</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{t('admin_dashboard_subtitle')}</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Total Registered Workers" value={stats.totalWorkers.toLocaleString()} icon={Users} color="indigo" />
-        <StatCard title="High Risk Workers" value={stats.highRiskWorkers.toLocaleString()} icon={ShieldAlert} color="red" />
-        <StatCard title="Records This Month" value={stats.monthlyRecords.toLocaleString()} icon={FileText} color="green" />
-        <StatCard title="Regions Covered" value={stats.regionsCovered.toLocaleString()} icon={MapPin} color="purple" />
+        <StatCard title={t('total_registered_workers')} value={stats.totalWorkers.toLocaleString()} icon={Users} color="indigo" />
+        <StatCard title={t('high_risk_workers')} value={stats.highRiskWorkers.toLocaleString()} icon={ShieldAlert} color="red" />
+        <StatCard title={t('records_this_month')} value={stats.monthlyRecords.toLocaleString()} icon={FileText} color="green" />
+        <StatCard title={t('regions_covered')} value={stats.regionsCovered.toLocaleString()} icon={MapPin} color="purple" />
       </div>
 
       {loading && (
@@ -100,10 +103,10 @@ export default function AdminDashboard() {
         {/* Disease Trend Chart */}
         <div className="xl:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-5">
-            <TrendingUp className="w-5 h-5 text-indigo-500" /> Disease Trends — Last 12 Months
+            <TrendingUp className="w-5 h-5 text-indigo-500" /> {t('disease_trends_last_12_months')}
           </h3>
           {diseaseSeries.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={diseaseSeries} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
@@ -112,7 +115,7 @@ export default function AdminDashboard() {
                 <YAxis tick={{ fontSize: 12, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.08)', fontSize: 12 }} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="total" stroke="#4F46E5" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} name="Records" />
+                <Line type="monotone" dataKey="total" stroke="#4F46E5" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} name={t('records')} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -120,9 +123,9 @@ export default function AdminDashboard() {
 
         {/* Risk Distribution */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-5">Risk Distribution</h3>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-5">{t('risk_distribution')}</h3>
           {riskData.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={200}>
@@ -137,7 +140,7 @@ export default function AdminDashboard() {
                 {riskData.map(r => (
                   <div key={r.name} className="flex items-center gap-2 text-sm">
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ background: r.color }} />
-                    <span className="text-slate-600 dark:text-slate-400">{r.name}</span>
+                    <span className="text-slate-600 dark:text-slate-400">{t(getRiskLevelKey(r.name))}</span>
                     <span className="font-medium text-slate-800 dark:text-slate-200 ml-auto">{r.value.toLocaleString()}</span>
                   </div>
                 ))}

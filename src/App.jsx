@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/AuthContext'
+import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
 import './lib/i18n'
 
@@ -75,17 +76,18 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <ThemeProvider>
-          <AuthProvider>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                style: { borderRadius: '12px', background: '#1E293B', color: '#F8FAFC', fontSize: '14px' },
-                success: { iconTheme: { primary: '#16A34A', secondary: '#F8FAFC' } },
-                error: { iconTheme: { primary: '#DC2626', secondary: '#F8FAFC' } },
-              }}
-            />
-            <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><LoadingSpinner size="lg" /></div>}>
-              <Routes>
+          <LanguageProvider>
+            <AuthProvider>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  style: { borderRadius: '12px', background: '#1E293B', color: '#F8FAFC', fontSize: '14px' },
+                  success: { iconTheme: { primary: '#16A34A', secondary: '#F8FAFC' } },
+                  error: { iconTheme: { primary: '#DC2626', secondary: '#F8FAFC' } },
+                }}
+              />
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><LoadingSpinner size="lg" /></div>}>
+                <Routes>
                 {/* Auth */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
@@ -117,9 +119,10 @@ export default function App() {
                 {/* Default redirect */}
                 <Route path="/" element={<Home />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </AuthProvider>
+                </Routes>
+              </Suspense>
+            </AuthProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </BrowserRouter>
     </ErrorBoundary>

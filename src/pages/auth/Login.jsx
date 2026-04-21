@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Nfc, Mail, Lock, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import { useLanguage } from '../../context/LanguageContext'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../../lib/constants'
@@ -13,6 +14,7 @@ export default function Login() {
   const { signIn, demoLogin, role } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { setLanguage } = useLanguage()
   const { t, i18n } = useTranslation()
 
   const ROLE_REDIRECT = { worker: '/dashboard/worker', doctor: '/dashboard/doctor', admin: '/admin/dashboard' }
@@ -34,9 +36,9 @@ export default function Login() {
     try {
       await signIn(email, password)
       // role will be set in AuthContext via onAuthStateChange
-      toast.success('Welcome back!')
+      toast.success(t('toast_welcome_back'))
     } catch (err) {
-      toast.error(err.message || 'Login failed')
+      toast.error(err.message || t('toast_login_failed'))
     } finally {
       setLoading(false)
     }
@@ -44,7 +46,7 @@ export default function Login() {
 
   function handleDemoLogin(demoRole) {
     demoLogin(demoRole)
-    toast.success(`Logged in as demo ${demoRole}`)
+    toast.success(t('toast_demo_login', { role: t(demoRole) }))
     navigate(getRedirectTarget(demoRole), { replace: true })
   }
 
@@ -62,7 +64,7 @@ export default function Login() {
 
         {/* Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8">
-          <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 mb-6">{t('login_heading')}</h2>
+          <h2 className="text-xl font-semibold leading-relaxed text-slate-800 dark:text-slate-100 mb-6">{t('login_heading')}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -104,12 +106,12 @@ export default function Login() {
               disabled={loading}
               className="w-full bg-indigo-600 text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
-              {loading ? 'Signing in...' : t('login')}
+              {loading ? t('login_signing_in') : t('login')}
             </button>
           </form>
 
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center mt-4">
-            Don't have an account?{' '}
+            {t('login_no_account')}{' '}
             <Link to="/register" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
               {t('register')}
             </Link>
@@ -135,7 +137,7 @@ export default function Login() {
           <div className="mt-4">
             <select
               value={i18n.language}
-              onChange={e => { i18n.changeLanguage(e.target.value); localStorage.setItem('lang', e.target.value) }}
+              onChange={e => setLanguage(e.target.value)}
               className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}

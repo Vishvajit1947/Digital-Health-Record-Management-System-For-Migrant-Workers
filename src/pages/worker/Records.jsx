@@ -4,8 +4,10 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { formatDate } from '../../lib/helpers'
 import { getWorkerByUserId, getHealthRecords } from '../../lib/queries'
+import { useTranslation } from 'react-i18next'
 
 export default function WorkerRecords() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,7 +32,7 @@ export default function WorkerRecords() {
         if (!cancelled) setRecords(healthRecords)
       } catch (fetchError) {
         if (!cancelled) {
-          setError(fetchError.message || 'Unable to load records')
+          setError(fetchError.message || t('unable_load_records'))
           setRecords([])
         }
       } finally {
@@ -63,10 +65,10 @@ export default function WorkerRecords() {
   }
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-6 page-enter leading-relaxed">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Health Records</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Complete timeline of your medical history</p>
+        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{t('health_records')}</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{t('worker_records_subtitle')}</p>
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4">
@@ -75,7 +77,7 @@ export default function WorkerRecords() {
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search by diagnosis or doctor..."
+              placeholder={t('search_diagnosis_doctor')}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full text-sm bg-transparent text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none"
@@ -84,7 +86,7 @@ export default function WorkerRecords() {
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-slate-400" />
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <span className="text-slate-400 text-sm">to</span>
+            <span className="text-slate-400 text-sm">{t('to')}</span>
             <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
@@ -99,17 +101,17 @@ export default function WorkerRecords() {
               onClick={() => setExpanded(expanded === record.id ? null : record.id)}
               className="w-full flex items-center justify-between p-5 text-left"
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 min-w-0">
                 <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
                   <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-800 dark:text-slate-100">{record.diagnosis || 'Diagnosis not available'}</p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{formatDate(record.visit_date)} · {record.doctors?.users?.full_name || 'Doctor'} · {record.doctors?.hospital_name || 'Hospital not set'}</p>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100 break-words">{record.diagnosis || t('diagnosis_not_available')}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 break-words">{formatDate(record.visit_date)} · {record.doctors?.users?.full_name || t('doctor_name')} · {record.doctors?.hospital_name || t('hospital_not_set')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-lg hidden sm:inline">{record.icd10_code || 'N/A'}</span>
+                <span className="font-mono text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-lg hidden sm:inline">{record.icd10_code || t('not_available')}</span>
                 {expanded === record.id ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
               </div>
             </button>
@@ -117,24 +119,24 @@ export default function WorkerRecords() {
             {expanded === record.id && (
               <div className="border-t border-slate-100 dark:border-slate-700 p-5 space-y-4 bg-slate-50/50 dark:bg-slate-800/50">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">Notes</p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300">{record.notes || 'No notes available'}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">{t('notes')}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 break-words">{record.notes || t('no_notes')}</p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                   <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Blood pressure</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5 break-words">{t('blood_pressure')}</p>
                     <p className="font-medium text-slate-700 dark:text-slate-200">{record.blood_pressure || '—'}</p>
                   </div>
                   <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Temperature</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5 break-words">{t('temperature')}</p>
                     <p className="font-medium text-slate-700 dark:text-slate-200">{record.temperature ?? '—'}</p>
                   </div>
                   <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Weight</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5 break-words">{t('weight')}</p>
                     <p className="font-medium text-slate-700 dark:text-slate-200">{record.weight ?? '—'}</p>
                   </div>
                   <div className="bg-white dark:bg-slate-700/50 rounded-xl p-3">
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Record ID</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mb-0.5 break-words">{t('record_id')}</p>
                     <p className="font-medium text-slate-700 dark:text-slate-200 font-mono text-xs break-all">{record.id}</p>
                   </div>
                 </div>
@@ -145,7 +147,7 @@ export default function WorkerRecords() {
         {filtered.length === 0 && (
           <div className="text-center py-16 text-slate-400">
             <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-            <p>No data available</p>
+            <p>{t('no_data')}</p>
           </div>
         )}
       </div>

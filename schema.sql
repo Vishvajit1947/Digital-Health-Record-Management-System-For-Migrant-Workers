@@ -35,7 +35,64 @@ create table public.workers (
   user_id uuid references public.users(id) on delete cascade,
 
   health_id text unique not null,
-  date_of_birth date, 
+  date_of_birth date, Redesign the homepage content to make it more impactful, problem-focused, and easy to understand for real-world users.
+
+Update content as follows:
+
+1. Hero Section:
+Heading:
+"Healthcare that travels with every worker."
+
+Subheading:
+"Migrant workers often lose access to their medical history when they move. Our NFC-based system ensures their health records stay with them—anywhere, anytime."
+
+Top Tagline:
+"Built for real-world healthcare challenges"
+
+Buttons:
+- Get Started
+- Explore Demo
+
+2. Right Panel Content:
+Title:
+"Real-time care, wherever they go"
+
+Points:
+- Instant patient identification using NFC
+- Access full medical history in seconds
+- Update records from any location
+- Track health risks and trends centrally
+
+3. Problem Section (Add new section):
+"Millions of migrant workers lose access to their medical history every time they relocate. This leads to repeated tests, delayed treatment, and poor healthcare outcomes."
+
+4. Features Section:
+NFC-first identity:
+"One tap is all it takes. Instantly access a worker’s complete health record without manual entry or delays."
+
+Role-based access:
+"Workers, doctors, and administrators each get a tailored view—ensuring the right data reaches the right person."
+
+Seamless workflow:
+"From diagnosis to follow-ups, everything stays organized and accessible across locations."
+
+Multilingual support:
+"Designed for real users—supporting multiple languages for better understanding and usability."
+
+5. User Roles Section:
+Workers:
+"View your health records, prescriptions, and updates anytime—no documents required."
+
+Doctors:
+"Tap, access, and update patient data instantly—no paperwork, no delays."
+
+Administrators:
+"Monitor health trends, risks, and system usage to make better decisions at scale."
+
+6. Impact Line:
+"One system. Continuous care. Better decisions."
+
+Ensure clean spacing, proper padding, and responsive layout.
   gender text,
   blood_type text,
 

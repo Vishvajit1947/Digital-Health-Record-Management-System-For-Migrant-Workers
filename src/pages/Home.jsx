@@ -6,8 +6,6 @@ import {
   BarChart3,
   HeartPulse,
   Languages,
-  Leaf,
-  LockKeyhole,
   Moon,
   ShieldCheck,
   Smartphone,
@@ -18,6 +16,7 @@ import {
   Nfc,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { LANGUAGES } from '../lib/constants'
 import { useTranslation } from 'react-i18next'
@@ -28,62 +27,10 @@ const ROLE_ROUTES = {
   admin: '/admin/dashboard',
 }
 
-const ROLE_CARDS = [
-  {
-    role: 'worker',
-    title: 'Workers',
-    description: 'Access records, prescriptions, and updates from any device with a single secure identity.',
-    icon: Smartphone,
-    accent: 'from-emerald-500 to-teal-500',
-  },
-  {
-    role: 'doctor',
-    title: 'Doctors',
-    description: 'Scan NFC, add records quickly, and keep patient history organized in one place.',
-    icon: HeartPulse,
-    accent: 'from-indigo-500 to-blue-500',
-  },
-  {
-    role: 'admin',
-    title: 'Administrators',
-    description: 'Monitor risk, adoption, and system health across regions with analytics that stay actionable.',
-    icon: BarChart3,
-    accent: 'from-amber-500 to-orange-500',
-  },
-]
-
-const FEATURES = [
-  {
-    icon: Nfc,
-    title: 'NFC-first identity',
-    description: 'Fast patient access through NFC tags with minimal typing and fewer handoff errors.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Role-based access',
-    description: 'Workers, doctors, and admins see only the tools and records relevant to their role.',
-  },
-  {
-    icon: Workflow,
-    title: 'Clear workflow',
-    description: 'Structured records, prescriptions, and analytics keep care movement simple across teams.',
-  },
-  {
-    icon: Languages,
-    title: 'Built for language access',
-    description: 'Multilingual support helps the interface stay usable across diverse field conditions.',
-  },
-]
-
-const STATS = [
-  { value: '3', label: 'roles supported' },
-  { value: '4', label: 'languages ready' },
-  { value: '1', label: 'shared record system' },
-]
-
 export default function Home() {
   const navigate = useNavigate()
   const { demoLogin } = useAuth()
+  const { setLanguage } = useLanguage()
   const { darkMode, toggleDark } = useTheme()
   const { i18n, t } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
@@ -91,22 +38,22 @@ export default function Home() {
   const roleCards = [
     {
       role: 'worker',
-      title: t('home_role_worker_title'),
-      description: t('home_role_worker_desc'),
+      title: 'Workers',
+      description: 'View your health records, prescriptions, and updates anytime-no documents required.',
       icon: Smartphone,
       accent: 'from-emerald-500 to-teal-500',
     },
     {
       role: 'doctor',
-      title: t('home_role_doctor_title'),
-      description: t('home_role_doctor_desc'),
+      title: 'Doctors',
+      description: 'Tap, access, and update patient data instantly-no paperwork, no delays.',
       icon: HeartPulse,
       accent: 'from-indigo-500 to-blue-500',
     },
     {
       role: 'admin',
-      title: t('home_role_admin_title'),
-      description: t('home_role_admin_desc'),
+      title: 'Administrators',
+      description: 'Monitor health trends, risks, and system usage to make better decisions at scale.',
       icon: BarChart3,
       accent: 'from-amber-500 to-orange-500',
     },
@@ -115,30 +62,24 @@ export default function Home() {
   const features = [
     {
       icon: Nfc,
-      title: t('home_feature_nfc_title'),
-      description: t('home_feature_nfc_desc'),
+      title: 'NFC-first identity',
+      description: 'One tap is all it takes. Instantly access a worker\'s complete health record without manual entry or delays.',
     },
     {
       icon: ShieldCheck,
-      title: t('home_feature_access_title'),
-      description: t('home_feature_access_desc'),
+      title: 'Role-based access',
+      description: 'Workers, doctors, and administrators each get a tailored view-ensuring the right data reaches the right person.',
     },
     {
       icon: Workflow,
-      title: t('home_feature_workflow_title'),
-      description: t('home_feature_workflow_desc'),
+      title: 'Seamless workflow',
+      description: 'From diagnosis to follow-ups, everything stays organized and accessible across locations.',
     },
     {
       icon: Languages,
-      title: t('home_feature_lang_title'),
-      description: t('home_feature_lang_desc'),
+      title: 'Multilingual support',
+      description: 'Designed for real users-supporting multiple languages for better understanding and usability.',
     },
-  ]
-
-  const stats = [
-    { value: '3', label: t('home_stat_roles') },
-    { value: '4', label: t('home_stat_languages') },
-    { value: '1', label: t('home_stat_system') },
   ]
 
   const currentLang = useMemo(
@@ -152,8 +93,7 @@ export default function Home() {
   }
 
   function handleLanguageChange(code) {
-    i18n.changeLanguage(code)
-    localStorage.setItem('lang', code)
+    setLanguage(code)
     setLangOpen(false)
   }
 
@@ -223,20 +163,20 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8 lg:pt-14">
-        <section className="grid items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-8">
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 lg:pt-14">
+        <section className="grid items-start gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-12">
+          <div className="space-y-7 sm:space-y-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 dark:border-cyan-400/20 bg-indigo-50 dark:bg-cyan-400/10 px-4 py-2 text-sm text-indigo-700 dark:text-cyan-200 shadow-lg dark:shadow-cyan-950/10">
               <Sparkles className="h-4 w-4" />
-              {t('home_badge')}
+              Built for real-world healthcare challenges
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
-                {t('home_title')}
+                Healthcare that travels with every worker.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300 sm:text-lg">
-                {t('home_subtitle')}
+                Migrant workers often lose access to their medical history when they move. Our NFC-based system ensures their health records stay with them-anywhere, anytime.
               </p>
             </div>
 
@@ -245,25 +185,16 @@ export default function Home() {
                 to="/login"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 dark:bg-cyan-400 px-6 py-3.5 text-sm font-semibold text-white dark:text-slate-950 transition hover:bg-indigo-700 dark:hover:bg-cyan-300"
               >
-                {t('home_get_started')}
+                Get Started
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <button
                 onClick={() => handleDemoLogin('doctor')}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-6 py-3.5 text-sm font-semibold text-slate-700 dark:text-slate-100 transition hover:bg-slate-100 dark:hover:bg-white/10"
               >
-                {t('home_try_demo')}
+                Explore Demo
                 <BadgeCheck className="h-4 w-4" />
               </button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              {stats.map(stat => (
-                <div key={stat.label} className="rounded-3xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 p-5 dark:backdrop-blur">
-                  <div className="text-2xl font-semibold text-slate-900 dark:text-white">{stat.value}</div>
-                  <div className="mt-1 text-sm text-slate-600 dark:text-slate-400">{stat.label}</div>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -272,21 +203,20 @@ export default function Home() {
             <div className="relative overflow-hidden rounded-[2rem] border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/80 p-6 shadow-2xl dark:shadow-black/30 dark:backdrop-blur-xl sm:p-8">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{t('home_live_overview')}</p>
-                  <h2 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{t('home_field_ready')}</h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Care snapshot</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">Real-time care, wherever they go</h2>
                 </div>
-                <span className="rounded-full bg-emerald-100 dark:bg-emerald-400/15 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">{t('home_active')}</span>
+                <span className="rounded-full bg-emerald-100 dark:bg-emerald-400/15 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">Live</span>
               </div>
 
-              <div className="mt-6 space-y-4">
+              <div className="mt-6 space-y-3 sm:space-y-4">
                 <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-4">
                   <div className="flex items-center gap-3">
                     <div className="rounded-2xl bg-indigo-100 dark:bg-indigo-500/15 p-3 text-indigo-600 dark:text-indigo-300">
-                      <ShieldCheck className="h-5 w-5" />
+                      <Nfc className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">{t('home_secure_access')}</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{t('home_secure_access_desc')}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Instant patient identification using NFC</p>
                     </div>
                   </div>
                 </div>
@@ -294,11 +224,10 @@ export default function Home() {
                 <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-4">
                   <div className="flex items-center gap-3">
                     <div className="rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 p-3 text-emerald-600 dark:text-emerald-300">
-                      <Leaf className="h-5 w-5" />
+                      <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">{t('home_mobile_workflow')}</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{t('home_mobile_workflow_desc')}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Access full medical history in seconds</p>
                     </div>
                   </div>
                 </div>
@@ -306,11 +235,21 @@ export default function Home() {
                 <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-4">
                   <div className="flex items-center gap-3">
                     <div className="rounded-2xl bg-amber-100 dark:bg-amber-500/15 p-3 text-amber-600 dark:text-amber-300">
-                      <LockKeyhole className="h-5 w-5" />
+                      <Workflow className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">{t('home_controlled_visibility')}</p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">{t('home_controlled_visibility_desc')}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Update records from any location</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-cyan-100 dark:bg-cyan-500/15 p-3 text-cyan-700 dark:text-cyan-300">
+                      <BarChart3 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">Track health risks and trends centrally</p>
                     </div>
                   </div>
                 </div>
@@ -319,7 +258,13 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mt-16 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-12 rounded-3xl border border-rose-200/80 dark:border-rose-400/20 bg-rose-50/80 dark:bg-rose-400/5 p-6 sm:mt-14 sm:p-8">
+          <p className="text-base leading-7 text-rose-900 dark:text-rose-100 sm:text-lg">
+            Millions of migrant workers lose access to their medical history every time they relocate. This leads to repeated tests, delayed treatment, and poor healthcare outcomes.
+          </p>
+        </section>
+
+        <section className="mt-12 grid gap-5 md:mt-14 md:grid-cols-2 xl:grid-cols-4">
           {features.map(feature => {
             const Icon = feature.icon
             return (
@@ -337,7 +282,9 @@ export default function Home() {
           })}
         </section>
 
-        <section className="mt-16 grid gap-5 lg:grid-cols-3">
+        <section className="mt-12 sm:mt-14">
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-3xl">User roles built for action</h2>
+          <div className="mt-5 grid gap-5 lg:grid-cols-3">
           {roleCards.map(card => {
             const Icon = card.icon
             return (
@@ -354,12 +301,19 @@ export default function Home() {
                   onClick={() => handleDemoLogin(card.role)}
                   className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-100 transition hover:bg-slate-200 dark:hover:bg-white/10"
                 >
-                  {t('home_open_demo')}
+                  Explore Demo
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </article>
             )
           })}
+          </div>
+        </section>
+
+        <section className="mt-12 pb-4 text-center sm:mt-14">
+          <p className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+            One system. Continuous care. Better decisions.
+          </p>
         </section>
       </main>
     </div>

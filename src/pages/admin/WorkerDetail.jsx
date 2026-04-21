@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Calendar, FileText, FlaskConical, Pill, UserRound } from 'lucide-react'
 import HealthScoreMeter from '../../components/shared/HealthScoreMeter'
 import LoadingSpinner from '../../components/shared/LoadingSpinner'
-import { formatDate } from '../../lib/helpers'
+import { formatDate, getDiagnosisStatusKey, getRiskLevelKey } from '../../lib/helpers'
 import { RISK_BADGE_CLASSES } from '../../lib/constants'
 import { getWorkerDetailById } from '../../lib/queries'
+import { useTranslation } from 'react-i18next'
 
 export default function WorkerDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -24,7 +26,7 @@ export default function WorkerDetail() {
         const detail = await getWorkerDetailById(id)
         if (!cancelled) setData(detail)
       } catch (fetchError) {
-        if (!cancelled) setError(fetchError.message || 'Unable to load worker details')
+        if (!cancelled) setError(fetchError.message || t('unable_load_worker_details'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -59,21 +61,21 @@ export default function WorkerDetail() {
     return (
       <div className="space-y-4 page-enter">
         <Link to="/admin/risk-table" className="inline-flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-          <ArrowLeft className="w-4 h-4" /> Back to risk table
+          <ArrowLeft className="w-4 h-4" /> {t('back_to_risk_table')}
         </Link>
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Unable to load worker</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{error || 'No data available'}</p>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t('unable_load_worker')}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">{error || t('no_data')}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-6 page-enter leading-relaxed">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <Link to="/admin/risk-table" className="inline-flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
-          <ArrowLeft className="w-4 h-4" /> Back to risk table
+          <ArrowLeft className="w-4 h-4" /> {t('back_to_risk_table')}
         </Link>
       </div>
 
@@ -85,17 +87,17 @@ export default function WorkerDetail() {
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{worker.name}</h1>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${riskBadgeClass}`}>{worker.risk_level} Risk</span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${riskBadgeClass}`}>{t(getRiskLevelKey(worker.risk_level))}</span>
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap gap-3">
               <span>{worker.health_id}</span>
-              <span>{worker.region || 'Unknown region'}</span>
-              <span>{worker.occupation || 'Occupation not set'}</span>
-              <span>{worker.gender || 'Gender not set'}</span>
-              <span>{worker.blood_type || 'Blood type not set'}</span>
+              <span>{worker.region || t('unknown_region')}</span>
+              <span>{worker.occupation || t('occupation_not_set')}</span>
+              <span>{worker.gender || t('gender_not_set')}</span>
+              <span>{worker.blood_type || t('blood_type_not_set')}</span>
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Last checkup: {formatDate(worker.last_checkup_date)}
+              {t('last_checkup')}: {formatDate(worker.last_checkup_date)}
             </div>
           </div>
           <HealthScoreMeter score={worker.health_score ?? 0} size={120} />
@@ -105,17 +107,17 @@ export default function WorkerDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-            <FileText className="w-5 h-5 text-indigo-500" /> Full Medical History
+            <FileText className="w-5 h-5 text-indigo-500" /> {t('full_medical_history')}
           </h2>
           {records.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</p>
           ) : (
             <div className="space-y-3">
               {records.map(record => (
                 <div key={record.id} className="border border-slate-100 dark:border-slate-700 rounded-xl p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
-                      <p className="font-medium text-slate-800 dark:text-slate-100">{record.diagnosis || 'Diagnosis not recorded'}</p>
+                      <p className="font-medium text-slate-800 dark:text-slate-100">{(getDiagnosisStatusKey(record.diagnosis) ? t(getDiagnosisStatusKey(record.diagnosis)) : record.diagnosis) || t('diagnosis_not_recorded')}</p>
                       <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                         <Calendar className="inline w-3.5 h-3.5 mr-1" />
                         {formatDate(record.visit_date)}
@@ -123,7 +125,7 @@ export default function WorkerDetail() {
                       </p>
                     </div>
                     <span className="text-xs font-mono bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-lg">
-                      {record.icd10_code || 'N/A'}
+                      {record.icd10_code || t('not_available')}
                     </span>
                   </div>
                   {record.notes && <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{record.notes}</p>}
@@ -135,12 +137,12 @@ export default function WorkerDetail() {
 
         <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-            <UserRound className="w-5 h-5 text-indigo-500" /> Worker Info
+            <UserRound className="w-5 h-5 text-indigo-500" /> {t('worker_info')}
           </h2>
           <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <p><span className="text-slate-400">Phone:</span> {worker.phone || 'Not provided'}</p>
-            <p><span className="text-slate-400">Preferred language:</span> {worker.preferred_language || 'en'}</p>
-            <p><span className="text-slate-400">DOB:</span> {formatDate(worker.date_of_birth)}</p>
+            <p><span className="text-slate-400">{t('phone')}:</span> {worker.phone || t('not_provided')}</p>
+            <p><span className="text-slate-400">{t('preferred_language')}:</span> {worker.preferred_language || 'en'}</p>
+            <p><span className="text-slate-400">{t('dob')}:</span> {formatDate(worker.date_of_birth)}</p>
           </div>
         </section>
       </div>
@@ -148,10 +150,10 @@ export default function WorkerDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-            <Pill className="w-5 h-5 text-indigo-500" /> Prescriptions
+            <Pill className="w-5 h-5 text-indigo-500" /> {t('prescriptions')}
           </h2>
           {prescriptions.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</p>
           ) : (
             <div className="space-y-3">
               {prescriptions.map(prescription => (
@@ -159,11 +161,11 @@ export default function WorkerDetail() {
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-medium text-slate-800 dark:text-slate-100">{prescription.drug_name}</p>
                     <span className={`text-xs px-2.5 py-0.5 rounded-full ${prescription.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}`}>
-                      {prescription.is_active ? 'Active' : 'Inactive'}
+                      {prescription.is_active ? t('active') : t('inactive')}
                     </span>
                   </div>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    {prescription.dosage || '—'} · {prescription.frequency || '—'} · {prescription.duration_days || 0} days
+                    {prescription.dosage || '—'} · {prescription.frequency || '—'} · {t('days_count', { count: prescription.duration_days || 0 })}
                   </p>
                 </div>
               ))}
@@ -173,10 +175,10 @@ export default function WorkerDetail() {
 
         <section className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-            <FlaskConical className="w-5 h-5 text-indigo-500" /> Reports
+            <FlaskConical className="w-5 h-5 text-indigo-500" /> {t('reports')}
           </h2>
           {reports.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</p>
           ) : (
             <div className="space-y-3">
               {reports.map(report => (
@@ -187,8 +189,8 @@ export default function WorkerDetail() {
                   rel="noreferrer"
                   className="block border border-slate-100 dark:border-slate-700 rounded-xl p-4 hover:border-indigo-200 dark:hover:border-indigo-700 transition-colors"
                 >
-                  <p className="font-medium text-slate-800 dark:text-slate-100">{report.report_type || 'Lab report'}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Uploaded {formatDate(report.uploaded_at)}</p>
+                  <p className="font-medium text-slate-800 dark:text-slate-100">{report.report_type || t('lab_report')}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('uploaded_on', { date: formatDate(report.uploaded_at) })}</p>
                 </a>
               ))}
             </div>

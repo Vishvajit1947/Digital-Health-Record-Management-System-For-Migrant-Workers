@@ -3,8 +3,10 @@ import { Pill, Clock, CheckCircle2 } from 'lucide-react'
 import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { useAuth } from '../../context/AuthContext'
 import { getWorkerByUserId, getWorkerPrescriptions } from '../../lib/queries'
+import { useTranslation } from 'react-i18next'
 
 export default function WorkerPrescriptions() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -26,7 +28,7 @@ export default function WorkerPrescriptions() {
         if (!cancelled) setPrescriptions(rows)
       } catch (fetchError) {
         if (!cancelled) {
-          setError(fetchError.message || 'Unable to load prescriptions')
+          setError(fetchError.message || t('unable_load_prescriptions'))
           setPrescriptions([])
         }
       } finally {
@@ -56,16 +58,16 @@ export default function WorkerPrescriptions() {
   }
 
   return (
-    <div className="space-y-6 page-enter">
+    <div className="space-y-6 page-enter leading-relaxed">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">Prescriptions</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">All your medication history</p>
+        <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100">{t('prescriptions')}</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{t('worker_prescriptions_subtitle')}</p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {['all', 'active', 'completed'].map(value => (
           <button key={value} onClick={() => setFilter(value)} className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-colors ${filter === value ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-            {value}
+            {t(value)}
           </button>
         ))}
       </div>
@@ -80,18 +82,18 @@ export default function WorkerPrescriptions() {
                 <Pill className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${prescription.is_active === false ? 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                {prescription.is_active === false ? 'Completed' : 'Active'}
+                {prescription.is_active === false ? t('completed') : t('active')}
               </span>
             </div>
             <h3 className="font-semibold text-slate-800 dark:text-slate-100">{prescription.drug_name}</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{prescription.dosage || '—'}</p>
             <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 dark:text-slate-500">
               <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{prescription.frequency || '—'}</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />{prescription.duration_days || 0} days</span>
+              <span className="flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />{t('days_count', { count: prescription.duration_days || 0 })}</span>
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">No data available</p>}
+        {filtered.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">{t('no_data')}</p>}
       </div>
     </div>
   )

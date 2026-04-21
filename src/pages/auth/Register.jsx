@@ -7,7 +7,15 @@ import toast from 'react-hot-toast'
 import { BLOOD_TYPES, REGIONS } from '../../lib/constants'
 import { buildPatientNfcUrl } from '../../lib/helpers'
 
-const SPECIALIZATIONS = ['General Medicine', 'Orthopedics', 'Pulmonology', 'Dermatology', 'ENT', 'Cardiology', 'Neurology']
+const SPECIALIZATIONS = [
+  { value: 'General Medicine', key: 'spec_general_medicine' },
+  { value: 'Orthopedics', key: 'spec_orthopedics' },
+  { value: 'Pulmonology', key: 'spec_pulmonology' },
+  { value: 'Dermatology', key: 'spec_dermatology' },
+  { value: 'ENT', key: 'spec_ent' },
+  { value: 'Cardiology', key: 'spec_cardiology' },
+  { value: 'Neurology', key: 'spec_neurology' },
+]
 
 export default function Register() {
   const navigate = useNavigate()
@@ -30,7 +38,7 @@ export default function Register() {
     e.preventDefault()
 
     if (!role) {
-      toast.error('Please select a role')
+      toast.error(t('please_select_role'))
       return
     }
 
@@ -85,7 +93,7 @@ export default function Register() {
           if (tokenErr) throw tokenErr
 
           const nfcUrl = buildPatientNfcUrl(nfcToken, form.full_name)
-          toast.success('Unique NFC URL created for this patient')
+          toast.success(t('nfc_url_created'))
           toast(nfcUrl, { duration: 7000 })
         } else if (role === 'doctor') {
           const { error: docErr } = await supabase.from('doctors').insert({ 
@@ -98,20 +106,20 @@ export default function Register() {
           if (docErr) throw docErr;
         }
       }
-      toast.success('Registration successful! Please log in.')
+      toast.success(t('registration_success'))
       navigate('/login')
     } catch (err) {
-      toast.error(err.message || 'Registration failed')
+      toast.error(err.message || t('registration_failed'))
     } finally {
       setLoading(false)
     }
   }
 
   const inputCls = "w-full px-4 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-  const labelCls = "block text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-1.5"
+  const labelCls = "block text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-medium mb-1.5 leading-relaxed break-words"
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4 py-12 leading-relaxed">
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -128,9 +136,9 @@ export default function Register() {
               <label className={labelCls}>{t('register_role_label')}</label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { value: 'worker', label: 'Worker' },
-                  { value: 'doctor', label: 'Doctor' },
-                  { value: 'admin', label: 'Administrator' },
+                  { value: 'worker', label: t('worker') },
+                  { value: 'doctor', label: t('doctor') },
+                  { value: 'admin', label: t('administrator') },
                 ].map(({ value, label }) => (
                   <button type="button" key={value} onClick={() => setRole(value)}
                     className={`py-3 rounded-xl text-sm font-medium border transition-colors capitalize ${role === value ? 'bg-indigo-600 text-white border-indigo-600' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
@@ -143,23 +151,23 @@ export default function Register() {
             {/* Common fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={labelCls}>Full Name</label>
+                <label className={labelCls}>{t('full_name')}</label>
                 <input type="text" value={form.full_name} onChange={e => update('full_name', e.target.value)} placeholder="Ravi Kumar" className={inputCls} required />
               </div>
               <div>
-                <label className={labelCls}>Phone</label>
+                <label className={labelCls}>{t('phone')}</label>
                 <input type="tel" value={form.phone} onChange={e => update('phone', e.target.value)} placeholder="+91 9876543210" className={inputCls} />
               </div>
             </div>
 
             <div>
-              <label className={labelCls}>Email</label>
+              <label className={labelCls}>{t('email')}</label>
               <input type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="you@example.com" className={inputCls} required />
             </div>
 
             <div>
-              <label className={labelCls}>Password</label>
-              <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder="Min 8 characters" className={inputCls} minLength={8} required />
+              <label className={labelCls}>{t('password')}</label>
+              <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder={t('min_8_characters')} className={inputCls} minLength={8} required />
             </div>
 
             {/* Worker specific */}
@@ -167,13 +175,13 @@ export default function Register() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Date of Birth</label>
+                    <label className={labelCls}>{t('date_of_birth')}</label>
                     <input type="date" value={form.dob} onChange={e => update('dob', e.target.value)} className={inputCls} />
                   </div>
                   <div>
-                    <label className={labelCls}>Gender</label>
+                    <label className={labelCls}>{t('gender')}</label>
                     <select value={form.gender} onChange={e => update('gender', e.target.value)} className={inputCls}>
-                      <option value="">Select</option>
+                      <option value="">{t('select')}</option>
                       <option>Male</option>
                       <option>Female</option>
                       <option>Other</option>
@@ -182,22 +190,22 @@ export default function Register() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Blood Type</label>
+                    <label className={labelCls}>{t('blood_type')}</label>
                     <select value={form.blood_type} onChange={e => update('blood_type', e.target.value)} className={inputCls}>
-                      <option value="">Select</option>
+                      <option value="">{t('select')}</option>
                       {BLOOD_TYPES.map(b => <option key={b}>{b}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Region</label>
+                    <label className={labelCls}>{t('region')}</label>
                     <select value={form.region} onChange={e => update('region', e.target.value)} className={inputCls}>
-                      <option value="">Select</option>
+                      <option value="">{t('select')}</option>
                       {REGIONS.map(r => <option key={r}>{r}</option>)}
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className={labelCls}>Occupation</label>
+                  <label className={labelCls}>{t('occupation')}</label>
                   <input type="text" value={form.occupation} onChange={e => update('occupation', e.target.value)} placeholder="e.g. Construction Worker" className={inputCls} />
                 </div>
               </>
@@ -208,25 +216,25 @@ export default function Register() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>License Number</label>
+                    <label className={labelCls}>{t('license_number')}</label>
                     <input type="text" value={form.license_number} onChange={e => update('license_number', e.target.value)} placeholder="MCI-123456" className={inputCls} />
                   </div>
                   <div>
-                    <label className={labelCls}>Specialization</label>
+                    <label className={labelCls}>{t('specialization')}</label>
                     <select value={form.specialization} onChange={e => update('specialization', e.target.value)} className={inputCls}>
-                      <option value="">Select</option>
-                      {SPECIALIZATIONS.map(s => <option key={s}>{s}</option>)}
+                      <option value="">{t('select')}</option>
+                      {SPECIALIZATIONS.map(s => <option key={s.value} value={s.value}>{t(s.key)}</option>)}
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className={labelCls}>Hospital Name</label>
+                  <label className={labelCls}>{t('hospital_name')}</label>
                   <input type="text" value={form.hospital_name} onChange={e => update('hospital_name', e.target.value)} placeholder="City General Hospital" className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Region</label>
+                  <label className={labelCls}>{t('region')}</label>
                   <select value={form.region} onChange={e => update('region', e.target.value)} className={inputCls}>
-                    <option value="">Select</option>
+                    <option value="">{t('select')}</option>
                     {REGIONS.map(r => <option key={r}>{r}</option>)}
                   </select>
                 </div>
