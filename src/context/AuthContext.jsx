@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { assertSupabaseConfigured, isSupabaseConfigured, withTimeout } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
@@ -17,20 +16,7 @@ export function AuthProvider({ children }) {
 
     async function initAuth() {
       setLoading(true)
-
-      if (!isSupabaseConfigured) {
-        setSession(null)
-        setUser(null)
-        setRole(null)
-        setLoading(false)
-        return
-      }
-
-      const { data, error } = await withTimeout(
-        supabase.auth.getSession(),
-        undefined,
-        'Unable to verify session. Please check your network and Supabase configuration.',
-      )
+      const { data, error } = await supabase.auth.getSession()
 
       if (!active) return
 
@@ -115,12 +101,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signIn(email, password) {
-    assertSupabaseConfigured()
-    const { data, error } = await withTimeout(
-      supabase.auth.signInWithPassword({ email, password }),
-      undefined,
-      'Login timed out. Please retry.',
-    )
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     return data
   }

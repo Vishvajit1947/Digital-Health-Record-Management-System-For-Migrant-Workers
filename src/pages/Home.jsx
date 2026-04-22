@@ -20,7 +20,6 @@ import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { LANGUAGES } from '../lib/constants'
 import { supabase } from '../lib/supabase'
-import { isSupabaseConfigured, withTimeout } from '../lib/supabaseClient'
 import { useTranslation } from 'react-i18next'
 
 const ROLE_ROUTES = {
@@ -99,17 +98,8 @@ export default function Home() {
     setIsClient(true)
 
     async function checkUser() {
-      if (!isSupabaseConfigured) {
-        if (mounted) setAuthBootstrapping(false)
-        return
-      }
-
       try {
-        await withTimeout(
-          supabase.auth.getSession(),
-          undefined,
-          'Session bootstrap timed out',
-        )
+        await supabase.auth.getSession()
       } finally {
         if (mounted) setAuthBootstrapping(false)
       }
@@ -130,18 +120,9 @@ export default function Home() {
   async function handleGetStarted() {
     if (!isClient || authBootstrapping || redirectLoading) return
 
-    if (!isSupabaseConfigured) {
-      navigate('/login')
-      return
-    }
-
     setRedirectLoading(true)
     try {
-      const { data, error } = await withTimeout(
-        supabase.auth.getUser(),
-        undefined,
-        'Unable to fetch current user',
-      )
+      const { data, error } = await supabase.auth.getUser()
       if (error || !data?.user) {
         navigate('/login')
         return
