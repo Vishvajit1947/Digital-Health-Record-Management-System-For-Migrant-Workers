@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import { BLOOD_TYPES, REGIONS } from '../../lib/constants'
 import { buildPatientNfcUrl } from '../../lib/helpers'
+import { assertSupabaseConfigured, withTimeout } from '../../lib/supabaseClient'
 
 const SPECIALIZATIONS = [
   { value: 'General Medicine', key: 'spec_general_medicine' },
@@ -44,29 +45,31 @@ export default function Register() {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({
+      assertSupabaseConfigured()
+
+      const { data, error } = await withTimeout(supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: { data: { full_name: form.full_name, role } }
-      })
+      }), undefined, 'Registration timed out. Please try again.')
       if (error) throw error
 
       const userId = data.user?.id
       if (userId) {
         // 1. Insert into public.users (don't insert email here, it's not in schema)
-        const { error: userErr } = await supabase.from('users').insert({ 
+        const { error: userErr } = await withTimeout(supabase.from('users').upsert({
           id: userId, 
           full_name: form.full_name, 
           phone: form.phone || null, 
           role 
-        })
+        }, { onConflict: 'id' }), undefined, 'Saving user profile timed out.')
         if (userErr) throw userErr;
 
         // 2. Insert into role-specific table
         if (role === 'worker') {
           const health_id = 'W-' + Math.random().toString(36).substring(2, 10).toUpperCase();
           const nfcToken = crypto.randomUUID()
-          const { error: workerErr } = await supabase.from('workers').insert({ 
+          const { error: workerErr } = await withTimeout(supabase.from('workers').insert({
             user_id: userId, 
             health_id: health_id,
             date_of_birth: form.dob || null, 
@@ -74,35 +77,37 @@ export default function Register() {
             blood_type: form.blood_type || null, 
             region: form.region || null, 
             occupation: form.occupation || null
-          })
+          }), undefined, 'Saving worker profile timed out.')
           if (workerErr) throw workerErr;
 
-          const { data: workerRow, error: workerLookupErr } = await supabase
+          const { data: workerRow, error: workerLookupErr } = await withTimeout(supabase
             .from('workers')
             .select('id')
             .eq('user_id', userId)
-            .single()
+            .single(), undefined, 'Fetching worker record timed out.')
 
           if (workerLookupErr) throw workerLookupErr
 
-          const { error: tokenErr } = await supabase.from('nfc_tokens').insert({
+          const { error: tokenErr } = await withTimeout(supabase.from('nfc_tokens').insert({
             worker_id: workerRow.id,
             token: nfcToken,
             is_active: true,
-          })
-          if (tokenErr) throw tokenErr
+          }), undefined, 'Generating NFC token timed out.')
+          if (tokenErr) {
+            console.error('NFC token creation failed:', tokenErr)
+          }
 
           const nfcUrl = buildPatientNfcUrl(nfcToken, form.full_name)
           toast.success(t('nfc_url_created'))
           toast(nfcUrl, { duration: 7000 })
         } else if (role === 'doctor') {
-          const { error: docErr } = await supabase.from('doctors').insert({ 
+          const { error: docErr } = await withTimeout(supabase.from('doctors').insert({
             user_id: userId, 
             license_number: form.license_number || ('DOC-' + Math.floor(Math.random()*10000)), 
             specialization: form.specialization || null, 
             hospital_name: form.hospital_name || null, 
             region: form.region || null 
-          })
+          }), undefined, 'Saving doctor profile timed out.')
           if (docErr) throw docErr;
         }
       }
