@@ -8,7 +8,8 @@ export const isSupabaseConfigured = Boolean(rawSupabaseUrl && rawSupabaseAnonKey
 const supabaseUrl = isSupabaseConfigured ? rawSupabaseUrl : 'https://placeholder.supabase.co'
 const supabaseAnonKey = isSupabaseConfigured ? rawSupabaseAnonKey : 'placeholder-anon-key'
 
-export const AUTH_REQUEST_TIMEOUT_MS = 8000
+export const AUTH_REQUEST_TIMEOUT_MS = 20000
+export const PROFILE_REQUEST_TIMEOUT_MS = 10000
 
 export function withTimeout(promise, timeoutMs = AUTH_REQUEST_TIMEOUT_MS, timeoutMessage = 'Request timed out') {
 	let timeoutId

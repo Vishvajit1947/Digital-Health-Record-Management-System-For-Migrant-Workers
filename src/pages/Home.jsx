@@ -37,7 +37,6 @@ export default function Home() {
   const { i18n, t } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
   const [isClient, setIsClient] = useState(false)
-  const [authBootstrapping, setAuthBootstrapping] = useState(true)
   const [redirectLoading, setRedirectLoading] = useState(false)
 
   const roleCards = [
@@ -95,31 +94,7 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
-    let mounted = true
     setIsClient(true)
-
-    async function checkUser() {
-      if (!isSupabaseConfigured) {
-        if (mounted) setAuthBootstrapping(false)
-        return
-      }
-
-      try {
-        await withTimeout(
-          supabase.auth.getSession(),
-          undefined,
-          'Session bootstrap timed out.',
-        )
-      } finally {
-        if (mounted) setAuthBootstrapping(false)
-      }
-    }
-
-    checkUser()
-
-    return () => {
-      mounted = false
-    }
   }, [])
 
   function handleDemoLogin(role) {
@@ -128,7 +103,7 @@ export default function Home() {
   }
 
   async function handleGetStarted() {
-    if (!isClient || authBootstrapping || redirectLoading) return
+    if (!isClient || redirectLoading) return
 
     if (!isSupabaseConfigured) {
       navigate('/login')
@@ -151,21 +126,29 @@ export default function Home() {
       let resolvedRole = roleFromMetadata(data.user)
 
       if (!resolvedRole) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', userId)
-          .maybeSingle()
+        const { data: profile } = await withTimeout(
+          supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .maybeSingle(),
+          7000,
+          'Timed out while resolving role.',
+        )
 
         resolvedRole = profile?.role || null
       }
 
       if (!resolvedRole) {
-        const { data: workerProfile } = await supabase
-          .from('workers')
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle()
+        const { data: workerProfile } = await withTimeout(
+          supabase
+            .from('workers')
+            .select('id')
+            .eq('user_id', userId)
+            .maybeSingle(),
+          7000,
+          'Timed out while resolving worker profile.',
+        )
 
         if (workerProfile) resolvedRole = 'worker'
       }
@@ -274,10 +257,10 @@ export default function Home() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={handleGetStarted}
-                disabled={!isClient || authBootstrapping || redirectLoading}
+                disabled={!isClient || redirectLoading}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 dark:bg-cyan-400 px-6 py-3.5 text-sm font-semibold text-white dark:text-slate-950 transition hover:bg-indigo-700 dark:hover:bg-cyan-300"
               >
-                {redirectLoading || authBootstrapping ? 'Loading...' : 'Get Started'}
+                {redirectLoading ? 'Loading...' : 'Get Started'}
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button

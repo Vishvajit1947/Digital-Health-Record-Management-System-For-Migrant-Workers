@@ -47,10 +47,10 @@ export default function Login() {
         )
         if (!mounted || error || !data?.session?.user) return
 
-        const resolvedRole = await resolveRole(data.session.user)
-        if (!mounted) return
-
-        navigate(getRedirectTarget(resolvedRole), { replace: true })
+        // If role is already known, redirect immediately. Otherwise let AuthContext resolve it.
+        if (role) {
+          navigate(getRedirectTarget(role), { replace: true })
+        }
       } finally {
         if (mounted) setAuthChecking(false)
       }
@@ -80,47 +80,12 @@ export default function Login() {
     setLoading(true)
     try {
       await signIn(email, password)
-
-      const { data, error } = await withTimeout(
-        supabase.auth.getUser(),
-        undefined,
-        'Unable to load user after login. Please retry.',
-      )
-      if (error || !data?.user) {
-        navigate('/login', { replace: true })
-        return
-      }
-
-      const resolvedRole = await resolveRole(data.user)
       toast.success(t('toast_welcome_back'))
-      navigate(getRedirectTarget(resolvedRole), { replace: true })
     } catch (err) {
       toast.error(err.message || t('toast_login_failed'))
     } finally {
       setLoading(false)
     }
-  }
-
-  async function resolveRole(authUser) {
-    const metadataRole = authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
-    if (metadataRole && ROLE_REDIRECT[metadataRole]) return metadataRole
-
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', authUser.id)
-      .maybeSingle()
-
-    if (profile?.role && ROLE_REDIRECT[profile.role]) return profile.role
-
-    const { data: workerProfile } = await supabase
-      .from('workers')
-      .select('id')
-      .eq('user_id', authUser.id)
-      .maybeSingle()
-
-    if (workerProfile) return 'worker'
-    return 'worker'
   }
 
   function handleDemoLogin(demoRole) {

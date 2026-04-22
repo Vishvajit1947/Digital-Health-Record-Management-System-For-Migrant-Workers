@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { assertSupabaseConfigured, isSupabaseConfigured, withTimeout } from '../lib/supabaseClient'
+import {
+  assertSupabaseConfigured,
+  isSupabaseConfigured,
+  PROFILE_REQUEST_TIMEOUT_MS,
+  withTimeout,
+} from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
@@ -85,11 +90,15 @@ export function AuthProvider({ children }) {
     const metadataRole = resolveRoleFromAuthUser(authUser)
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', authUser.id)
-        .single()
+      const { data, error } = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single(),
+        PROFILE_REQUEST_TIMEOUT_MS,
+        'Timed out while loading your profile.',
+      )
 
       if (error) {
         console.error('Supabase Database Error in fetchUserRole:', error)
@@ -127,7 +136,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await withTimeout(
       supabase.auth.signInWithPassword({ email, password }),
       undefined,
-      'Login request timed out. Please try again.',
+      'Login is taking longer than expected. Please retry.',
     )
     if (error) throw error
     return data
