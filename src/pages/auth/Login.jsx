@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../../lib/constants'
 import { supabase } from '../../lib/supabase'
+import { isSupabaseConfigured, withTimeout } from '../../lib/supabaseClient'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -33,8 +34,17 @@ export default function Login() {
     let mounted = true
 
     async function checkExistingSession() {
+      if (!isSupabaseConfigured) {
+        if (mounted) setAuthChecking(false)
+        return
+      }
+
       try {
-        const { data, error } = await supabase.auth.getSession()
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          undefined,
+          'Session check timed out. Please refresh and retry.',
+        )
         if (!mounted || error || !data?.session?.user) return
 
         const resolvedRole = await resolveRole(data.session.user)
@@ -60,11 +70,22 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+
+    if (!isSupabaseConfigured) {
+      toast.error('Supabase env vars are missing on this deployment. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.')
+      setAuthChecking(false)
+      return
+    }
+
     setLoading(true)
     try {
       await signIn(email, password)
 
-      const { data, error } = await supabase.auth.getUser()
+      const { data, error } = await withTimeout(
+        supabase.auth.getUser(),
+        undefined,
+        'Unable to load user after login. Please retry.',
+      )
       if (error || !data?.user) {
         navigate('/login', { replace: true })
         return

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { assertSupabaseConfigured, isSupabaseConfigured, withTimeout } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
@@ -16,11 +17,8 @@ export function AuthProvider({ children }) {
 
     async function initAuth() {
       setLoading(true)
-      const { data, error } = await supabase.auth.getSession()
-
-      if (!active) return
-
-      if (error) {
+      if (!isSupabaseConfigured) {
+        if (!active) return
         setSession(null)
         setUser(null)
         setRole(null)
@@ -28,11 +26,35 @@ export function AuthProvider({ children }) {
         return
       }
 
-      const session = data?.session || null
-      setSession(session)
-      if (session?.user) {
-        await fetchUserRole(session.user)
-      } else {
+      try {
+        const { data, error } = await withTimeout(
+          supabase.auth.getSession(),
+          undefined,
+          'Unable to verify session. Please check your network and Supabase settings.',
+        )
+
+        if (!active) return
+
+        if (error) {
+          setSession(null)
+          setUser(null)
+          setRole(null)
+          setLoading(false)
+          return
+        }
+
+        const session = data?.session || null
+        setSession(session)
+        if (session?.user) {
+          await fetchUserRole(session.user)
+        } else {
+          setUser(null)
+          setRole(null)
+          setLoading(false)
+        }
+      } catch (_error) {
+        if (!active) return
+        setSession(null)
         setUser(null)
         setRole(null)
         setLoading(false)
@@ -101,7 +123,12 @@ export function AuthProvider({ children }) {
   }
 
   async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    assertSupabaseConfigured()
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({ email, password }),
+      undefined,
+      'Login request timed out. Please try again.',
+    )
     if (error) throw error
     return data
   }
