@@ -17,7 +17,7 @@ const NAV_ITEMS = {
   doctor: [
     { to: '/doctor/dashboard', icon: LayoutDashboard, labelKey: 'dashboard' },
     { to: '/doctor/scan', icon: ScanLine, labelKey: 'scan_patient' },
-    { to: '/doctor/patients', icon: Users, labelKey: 'my_patients' },
+    { to: '/dashboard/doctor/patients', icon: Users, labelKey: 'my_patients' },
   ],
   admin: [
     { to: '/admin/dashboard', icon: LayoutDashboard, labelKey: 'dashboard' },

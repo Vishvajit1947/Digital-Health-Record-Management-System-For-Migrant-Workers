@@ -30,6 +30,7 @@ import DoctorDashboard from './pages/doctor/Dashboard'
 import ScanNFC from './pages/doctor/ScanNFC'
 import PatientDetail from './pages/doctor/PatientDetail'
 import AddRecord from './pages/doctor/AddRecord'
+import DoctorPatients from './pages/doctor/Patients'
 
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard'
@@ -105,6 +106,8 @@ export default function App() {
 
                 {/* Doctor routes */}
                 <Route path="/dashboard/doctor" element={<Navigate to="/doctor/dashboard" replace />} />
+                <Route path="/dashboard/doctor/patients" element={<ProtectedLayout role="doctor"><DoctorPatients /></ProtectedLayout>} />
+                <Route path="/doctor/patients" element={<Navigate to="/dashboard/doctor/patients" replace />} />
                 <Route path="/doctor/dashboard" element={<ProtectedLayout role="doctor"><DoctorDashboard /></ProtectedLayout>} />
                 <Route path="/doctor/scan" element={<ProtectedLayout role="doctor"><ScanNFC /></ProtectedLayout>} />
                 <Route path="/doctor/patient/:id" element={<ProtectedLayout role="doctor"><PatientDetail /></ProtectedLayout>} />
