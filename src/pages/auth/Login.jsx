@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Nfc, Mail, Lock, ChevronDown } from 'lucide-react'
+import { Nfc, Mail, Lock } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../../lib/constants'
+import { supabase } from '../../lib/supabase'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
   const { signIn, demoLogin, role } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -22,8 +24,34 @@ export default function Login() {
 
   function getRedirectTarget(currentRole) {
     if (currentRole === 'doctor' && intendedPath) return intendedPath
-    return ROLE_REDIRECT[currentRole] || '/'
+    return ROLE_REDIRECT[currentRole] || ROLE_REDIRECT.worker
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    let mounted = true
+
+    async function checkExistingSession() {
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (!mounted || error || !data?.session?.user) return
+
+        const resolvedRole = await resolveRole(data.session.user)
+        if (!mounted) return
+
+        navigate(getRedirectTarget(resolvedRole), { replace: true })
+      } finally {
+        if (mounted) setAuthChecking(false)
+      }
+    }
+
+    checkExistingSession()
+
+    return () => {
+      mounted = false
+    }
+  }, [navigate, intendedPath])
 
   useEffect(() => {
     if (!role || loading) return
@@ -35,13 +63,43 @@ export default function Login() {
     setLoading(true)
     try {
       await signIn(email, password)
-      // role will be set in AuthContext via onAuthStateChange
+
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data?.user) {
+        navigate('/login', { replace: true })
+        return
+      }
+
+      const resolvedRole = await resolveRole(data.user)
       toast.success(t('toast_welcome_back'))
+      navigate(getRedirectTarget(resolvedRole), { replace: true })
     } catch (err) {
       toast.error(err.message || t('toast_login_failed'))
     } finally {
       setLoading(false)
     }
+  }
+
+  async function resolveRole(authUser) {
+    const metadataRole = authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
+    if (metadataRole && ROLE_REDIRECT[metadataRole]) return metadataRole
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', authUser.id)
+      .maybeSingle()
+
+    if (profile?.role && ROLE_REDIRECT[profile.role]) return profile.role
+
+    const { data: workerProfile } = await supabase
+      .from('workers')
+      .select('id')
+      .eq('user_id', authUser.id)
+      .maybeSingle()
+
+    if (workerProfile) return 'worker'
+    return 'worker'
   }
 
   function handleDemoLogin(demoRole) {
@@ -103,10 +161,10 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || authChecking}
               className="w-full bg-indigo-600 text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
-              {loading ? t('login_signing_in') : t('login')}
+              {loading || authChecking ? t('login_signing_in') : t('login')}
             </button>
           </form>
 

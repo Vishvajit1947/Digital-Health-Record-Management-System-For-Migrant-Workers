@@ -10,53 +10,94 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) fetchUserRole(session.user.id)
-      else setLoading(false)
-    })
+    if (typeof window === 'undefined') return undefined
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    let active = true
+
+    async function initAuth() {
+      setLoading(true)
+      const { data, error } = await supabase.auth.getSession()
+
+      if (!active) return
+
+      if (error) {
+        setSession(null)
+        setUser(null)
+        setRole(null)
+        setLoading(false)
+        return
+      }
+
+      const session = data?.session || null
       setSession(session)
-      if (session?.user) fetchUserRole(session.user.id)
-      else {
+      if (session?.user) {
+        await fetchUserRole(session.user)
+      } else {
+        setUser(null)
+        setRole(null)
+        setLoading(false)
+      }
+    }
+
+    initAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return
+      setSession(session)
+      if (session?.user) {
+        await fetchUserRole(session.user)
+      } else {
         setUser(null)
         setRole(null)
         setLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
-  async function fetchUserRole(userId) {
+  async function fetchUserRole(authUser) {
+    const metadataRole = resolveRoleFromAuthUser(authUser)
+
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('id', authUser.id)
         .single()
-        
+
       if (error) {
-        console.error("Supabase Database Error in fetchUserRole:", error)
+        console.error('Supabase Database Error in fetchUserRole:', error)
       }
-      
+
       if (data) {
         setUser(data)
-        setRole(data.role)
+        setRole(data.role || metadataRole || 'worker')
       } else {
-        console.warn("No user profile found in the database for this auth account!", userId)
+        setRole(metadataRole || 'worker')
+        setUser({ id: authUser.id, role: metadataRole || 'worker', full_name: authUser.email || 'User' })
       }
     } catch (e) {
-      // If no DB, use demo mode
+      // If DB lookup fails, try demo role first and then metadata/default role.
       const demoRole = localStorage.getItem('demo_role')
       if (demoRole) {
         setRole(demoRole)
-        setUser({ id: userId, role: demoRole, full_name: 'Demo User' })
+        setUser({ id: authUser.id, role: demoRole, full_name: 'Demo User' })
+      } else {
+        const fallbackRole = metadataRole || 'worker'
+        setRole(fallbackRole)
+        setUser({ id: authUser.id, role: fallbackRole, full_name: authUser.email || 'User' })
       }
     } finally {
       setLoading(false)
     }
+  }
+
+  function resolveRoleFromAuthUser(authUser) {
+    return authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
   }
 
   async function signIn(email, password) {

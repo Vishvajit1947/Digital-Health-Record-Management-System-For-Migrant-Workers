@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
@@ -19,11 +19,12 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { LANGUAGES } from '../lib/constants'
+import { supabase } from '../lib/supabase'
 import { useTranslation } from 'react-i18next'
 
 const ROLE_ROUTES = {
-  worker: '/worker/dashboard',
-  doctor: '/doctor/dashboard',
+  worker: '/dashboard/worker',
+  doctor: '/dashboard/doctor',
   admin: '/admin/dashboard',
 }
 
@@ -34,6 +35,9 @@ export default function Home() {
   const { darkMode, toggleDark } = useTheme()
   const { i18n, t } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+  const [authBootstrapping, setAuthBootstrapping] = useState(true)
+  const [redirectLoading, setRedirectLoading] = useState(false)
 
   const roleCards = [
     {
@@ -87,9 +91,77 @@ export default function Home() {
     [i18n.language],
   )
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    let mounted = true
+    setIsClient(true)
+
+    async function checkUser() {
+      try {
+        await supabase.auth.getSession()
+      } finally {
+        if (mounted) setAuthBootstrapping(false)
+      }
+    }
+
+    checkUser()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   function handleDemoLogin(role) {
     demoLogin(role)
     navigate(ROLE_ROUTES[role], { replace: true })
+  }
+
+  async function handleGetStarted() {
+    if (!isClient || authBootstrapping || redirectLoading) return
+
+    setRedirectLoading(true)
+    try {
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data?.user) {
+        navigate('/login')
+        return
+      }
+
+      const userId = data.user.id
+      let resolvedRole = roleFromMetadata(data.user)
+
+      if (!resolvedRole) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle()
+
+        resolvedRole = profile?.role || null
+      }
+
+      if (!resolvedRole) {
+        const { data: workerProfile } = await supabase
+          .from('workers')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        if (workerProfile) resolvedRole = 'worker'
+      }
+
+      const targetRoute = ROLE_ROUTES[resolvedRole] || ROLE_ROUTES.worker
+      navigate(targetRoute, { replace: true })
+    } catch {
+      navigate('/login')
+    } finally {
+      setRedirectLoading(false)
+    }
+  }
+
+  function roleFromMetadata(authUser) {
+    return authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
   }
 
   function handleLanguageChange(code) {
@@ -181,13 +253,14 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                to="/login"
+              <button
+                onClick={handleGetStarted}
+                disabled={!isClient || authBootstrapping || redirectLoading}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 dark:bg-cyan-400 px-6 py-3.5 text-sm font-semibold text-white dark:text-slate-950 transition hover:bg-indigo-700 dark:hover:bg-cyan-300"
               >
-                Get Started
+                {redirectLoading || authBootstrapping ? 'Loading...' : 'Get Started'}
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </button>
               <button
                 onClick={() => handleDemoLogin('doctor')}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-6 py-3.5 text-sm font-semibold text-slate-700 dark:text-slate-100 transition hover:bg-slate-100 dark:hover:bg-white/10"
