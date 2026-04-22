@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Users, Activity, ClipboardList, Stethoscope, ScanLine, Search, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Users, Activity, ClipboardList, Stethoscope, ScanLine, ExternalLink } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
 import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { formatDate } from '../../lib/helpers'
-import { RISK_BADGE_CLASSES } from '../../lib/constants'
 import { supabase } from '../../lib/supabase'
-import { getWorkerByNfcToken } from '../../lib/queries'
-import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 
 export default function DoctorDashboard() {
   const { t } = useTranslation()
-  const [searchId, setSearchId] = useState('')
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [recentPatients, setRecentPatients] = useState([])
-  const navigate = useNavigate()
 
   useEffect(() => {
     let cancelled = false
@@ -77,25 +73,6 @@ export default function DoctorDashboard() {
     }).length, icon: Activity, color: 'purple' },
   ], [recentPatients, t])
 
-  function handleSearch(e) {
-    e.preventDefault()
-    const value = searchId.trim()
-    if (!value) return
-    navigate(`/doctor/patient/${encodeURIComponent(value)}`)
-  }
-
-  async function handleOpenNfcToken() {
-    const value = searchId.trim()
-    if (!value) return
-
-    try {
-      const worker = await getWorkerByNfcToken(value)
-      navigate(`/doctor/patient/${encodeURIComponent(worker.id)}`)
-    } catch {
-      toast.error(t('patient_not_found_nfc'))
-    }
-  }
-
   return (
     <div className="space-y-6 page-enter leading-relaxed">
       <div>
@@ -107,39 +84,21 @@ export default function DoctorDashboard() {
         {stats.map(stat => <StatCard key={stat.title} title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} />)}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link to="/doctor/scan" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-6 flex items-center gap-4 transition-colors group card-hover">
-          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-            <ScanLine className="w-7 h-7" />
+      <section className="w-full">
+        <Link
+          to="/doctor/scan"
+          className="w-full max-w-full mx-auto bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-5 sm:p-6 flex items-center gap-5 transition-colors group card-hover shadow-md border border-indigo-500"
+        >
+          <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <ScanLine className="w-8 h-8" />
           </div>
-          <div>
-            <p className="font-semibold text-lg break-words">{t('scan_nfc_patient')}</p>
-            <p className="text-indigo-200 text-sm break-words">{t('scan_nfc_patient_subtitle')}</p>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-xl">{t('scan_nfc_patient')}</p>
+            <p className="text-indigo-100 text-sm mt-0.5">{t('scan_nfc_patient_subtitle')}</p>
           </div>
-          <ExternalLink className="w-5 h-5 ml-auto opacity-60 group-hover:opacity-100" />
+          <ExternalLink className="w-6 h-6 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
         </Link>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
-          <p className="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-            <Search className="w-5 h-5 text-slate-400" /> {t('open_patient_by_id')}
-          </p>
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={searchId}
-              onChange={e => setSearchId(e.target.value)}
-              placeholder={t('enter_worker_or_nfc')}
-              className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <button type="submit" className="bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm hover:bg-indigo-700 transition-colors">
-              {t('open')}
-            </button>
-            <button type="button" onClick={handleOpenNfcToken} className="border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-              {t('resolve_nfc')}
-            </button>
-          </form>
-        </div>
-      </div>
+      </section>
 
       {loading && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8 flex items-center justify-center">
@@ -149,7 +108,7 @@ export default function DoctorDashboard() {
 
       {error && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{error}</div>}
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 mt-1">
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">{t('recent_patients')}</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
