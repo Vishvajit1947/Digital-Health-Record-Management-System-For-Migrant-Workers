@@ -106,6 +106,7 @@ export default function Login() {
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@example.com"

@@ -48,15 +48,13 @@ function ProtectedLayout({ role, children }) {
 }
 
 // Guards the /patient/:token route.
-// Waits for full auth resolution (loading covers session + role fetch),
-// then redirects unauthenticated users to login preserving the NFC URL,
-// and redirects non-doctors to their own dashboard.
+// Enforces: authenticated + role=doctor before rendering PatientAccess.
+// All other states show a spinner or redirect — patient data is never exposed.
 function NfcPatientGuard({ children }) {
   const { session, role, loading } = useAuth()
   const location = useLocation()
 
-  // Show spinner while auth is resolving OR while role is still being fetched.
-  // role=null with loading=false is a transient state during SIGNED_IN event handling.
+  // Wait until auth is fully resolved (session set + profile loaded)
   if (loading || (session && !role)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -65,15 +63,32 @@ function NfcPatientGuard({ children }) {
     )
   }
 
+  // Not logged in → send to login, preserving the full NFC URL for redirect-back
   if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
+  // Logged in but not a doctor → show access denied (don't redirect to avoid loops)
   if (role !== 'doctor') {
-    const fallback = { worker: '/worker/dashboard', admin: '/admin/dashboard' }
-    return <Navigate to={fallback[role] || '/'} replace />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+        <div className="max-w-sm w-full bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8 text-center">
+          <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">🔒</span>
+          </div>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Access Denied</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            This page is only accessible to doctors. Please log in with a doctor account.
+          </p>
+          <a href="/login" className="mt-6 inline-block w-full bg-indigo-600 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-indigo-700 transition-colors">
+            Sign in as Doctor
+          </a>
+        </div>
+      </div>
+    )
   }
 
+  // Authenticated doctor — render inside AppLayout
   return <AppLayout>{children}</AppLayout>
 }
 

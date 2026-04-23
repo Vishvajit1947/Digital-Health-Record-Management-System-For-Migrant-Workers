@@ -6,39 +6,48 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
-  const [user, setUser] = useState(null)
-  const [role, setRole] = useState(null)
+  const [user, setUser]       = useState(null)
+  const [role, setRole]       = useState(null)
+  // loading=true until we know whether the user is logged in or not
   const [loading, setLoading] = useState(true)
 
-  // Keep a ref to the latest session so the profile fetch effect can read it
-  const sessionRef = useRef(null)
+  // Prevent a second loadProfile call if session object reference changes
+  // but the user id hasn't changed (e.g. TOKEN_REFRESHED).
+  const lastProfileUid = useRef(null)
 
+  // ── Effect 1: subscribe to auth state changes (SYNCHRONOUS callback only) ──
+  // Never do async work inside onAuthStateChange — it holds the Supabase auth
+  // lock and causes "Lock not released within 5000ms" warnings.
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
-    // onAuthStateChange MUST be synchronous — no async work inside the callback.
-    // Doing async work (DB queries) inside the listener holds the Supabase auth lock
-    // and causes "Lock not released within 5000ms" warnings.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-      sessionRef.current = newSession
-      setSession(newSession)
-
-      if (!newSession) {
-        setUser(null)
-        setRole(null)
-        setLoading(false)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        setSession(newSession)
+        if (!newSession) {
+          // Signed out — clear state immediately
+          lastProfileUid.current = null
+          setUser(null)
+          setRole(null)
+          setLoading(false)
+        }
+        // If newSession exists, Effect 2 picks it up and loads the profile
       }
-      // If newSession exists, the useEffect below will pick it up and fetch the profile
-    })
+    )
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Separate effect handles the async DB work — runs whenever session changes.
-  // This keeps the onAuthStateChange callback synchronous (no lock contention).
+  // ── Effect 2: load user profile from DB whenever session user changes ──
+  // Runs outside the auth lock — safe to be async.
   useEffect(() => {
     if (!session?.user) return
 
+    // Skip if we already loaded the profile for this exact user id
+    // (avoids re-fetching on TOKEN_REFRESHED which keeps the same uid)
+    if (lastProfileUid.current === session.user.id) return
+
+    lastProfileUid.current = session.user.id
     let cancelled = false
 
     async function loadProfile() {
@@ -54,18 +63,18 @@ export function AuthProvider({ children }) {
           .maybeSingle()
 
         if (cancelled) return
-
         if (error) console.error('loadProfile error:', error.message)
 
         if (data) {
           setUser(data)
           setRole(data.role || metadataRole || 'worker')
         } else {
-          const fallbackRole = metadataRole || 'worker'
-          setRole(fallbackRole)
+          // No profile row yet — use auth metadata
+          const fallback = metadataRole || 'worker'
+          setRole(fallback)
           setUser({
             id: authUser.id,
-            role: fallbackRole,
+            role: fallback,
             full_name: authUser.email || 'User',
             email: authUser.email,
           })
@@ -98,6 +107,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut(onComplete) {
+    lastProfileUid.current = null
     await supabase.auth.signOut()
     localStorage.removeItem('demo_role')
     localStorage.removeItem('admin_portal_access')
@@ -108,6 +118,8 @@ export function AuthProvider({ children }) {
   }
 
   function demoLogin(demoRole) {
+    // Demo mode: set a synthetic session so guards treat the user as logged in
+    lastProfileUid.current = 'demo'
     localStorage.setItem('demo_role', demoRole)
     setRole(demoRole)
     setUser({ id: 'demo', role: demoRole, full_name: 'Demo User', email: 'demo@healthid.app' })
