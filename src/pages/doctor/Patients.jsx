@@ -8,8 +8,7 @@ import { getDoctorIdByUserId } from '../../lib/queries'
 import { useAuth } from '../../context/AuthContext'
 
 export default function DoctorPatients() {
-  const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [patients, setPatients] = useState([])
@@ -17,7 +16,10 @@ export default function DoctorPatients() {
   const [doctorName, setDoctorName] = useState('')
 
   useEffect(() => {
-    if (!user?.id) { navigate('/login', { replace: true }); return }
+    // Wait for auth to finish loading before checking user.
+    // Navigating during loading causes a redirect loop.
+    if (authLoading) return
+    if (!user?.id) return  // RoleGuard handles the redirect to /login
     let cancelled = false
 
     async function loadPatients() {
@@ -100,7 +102,7 @@ export default function DoctorPatients() {
 
     loadPatients()
     return () => { cancelled = true }
-  }, [user?.id, navigate])
+  }, [user?.id, authLoading])
 
   const patientCount = patients.length
 

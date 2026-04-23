@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -10,18 +10,24 @@ export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn, demoLogin, role, session } = useAuth()
+  const { signIn, demoLogin, role, session, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
-  const target = location.state?.from?.pathname || '/admin/dashboard'
+  // Capture target once — never let it become a reactive dep that re-triggers
+  const targetRef = useRef(location.state?.from?.pathname || '/admin/dashboard')
+  const didRedirect = useRef(false)
 
   useEffect(() => {
+    if (authLoading) return
+    if (didRedirect.current) return
     const simulated = localStorage.getItem('admin_portal_access') === 'true'
     if (session && (role === 'admin' || simulated)) {
-      navigate(target, { replace: true })
+      didRedirect.current = true
+      navigate(targetRef.current, { replace: true })
     }
-  }, [session, role, navigate, target])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session, role])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -31,6 +37,7 @@ export default function AdminLogin() {
       await signIn(email, password)
       localStorage.setItem('admin_portal_access', 'true')
       toast.success(t('admin_access_granted'))
+      didRedirect.current = true
       navigate('/admin/dashboard', { replace: true })
     } catch (error) {
       toast.error(error.message || t('admin_login_failed'))
@@ -40,6 +47,8 @@ export default function AdminLogin() {
   }
 
   function handleDemoAdmin() {
+    if (didRedirect.current) return
+    didRedirect.current = true
     demoLogin('admin')
     localStorage.setItem('admin_portal_access', 'true')
     toast.success(t('admin_demo_entered'))
