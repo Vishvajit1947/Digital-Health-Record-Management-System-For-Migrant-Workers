@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   assertSupabaseConfigured,
@@ -15,19 +15,14 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Tracks whether a fetchUserRole call is already in-flight.
-  // Prevents concurrent DB lookups when onAuthStateChange fires rapidly.
-  const fetchingRef = useRef(false)
-
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
     let active = true
 
-    // onAuthStateChange is the single source of truth for session state.
-    // It fires INITIAL_SESSION on mount (replaces the need for getSession()),
-    // then fires SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED etc. as they happen.
-    // Using ONLY this listener eliminates the duplicate-call race condition.
+    // onAuthStateChange is the single source of truth.
+    // It fires INITIAL_SESSION on mount, then SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED.
+    // No separate getSession() call needed — that would create a second concurrent lock.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!active) return
@@ -35,7 +30,7 @@ export function AuthProvider({ children }) {
         setSession(newSession)
 
         if (newSession?.user) {
-          await fetchUserRole(newSession.user, active)
+          await fetchUserProfile(newSession.user, active)
         } else {
           setUser(null)
           setRole(null)
@@ -50,36 +45,41 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function fetchUserRole(authUser, active = true) {
-    // Deduplicate: if a fetch is already running, skip this one.
-    if (fetchingRef.current) return
-    fetchingRef.current = true
-
+  async function fetchUserProfile(authUser, active = true) {
     const metadataRole =
       authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
 
     try {
-      const { data } = await withTimeout(
-        supabase.from('users').select('*').eq('id', authUser.id).single(),
+      // maybeSingle() returns null instead of throwing when no row found
+      const { data, error } = await withTimeout(
+        supabase.from('users').select('*').eq('id', authUser.id).maybeSingle(),
         PROFILE_REQUEST_TIMEOUT_MS,
         'Timed out loading profile.',
       )
 
       if (!active) return
 
+      if (error) {
+        console.error('fetchUserProfile error:', error.message)
+      }
+
       if (data) {
         setUser(data)
         setRole(data.role || metadataRole || 'worker')
       } else {
-        setRole(metadataRole || 'worker')
+        // No profile row yet — use metadata or default
+        const fallbackRole = metadataRole || 'worker'
+        setRole(fallbackRole)
         setUser({
           id: authUser.id,
-          role: metadataRole || 'worker',
+          role: fallbackRole,
           full_name: authUser.email || 'User',
+          email: authUser.email,
         })
       }
     } catch {
       if (!active) return
+      // DB unreachable — fall back to demo role or metadata
       const demoRole = localStorage.getItem('demo_role')
       const fallback = demoRole || metadataRole || 'worker'
       setRole(fallback)
@@ -87,21 +87,18 @@ export function AuthProvider({ children }) {
         id: authUser.id,
         role: fallback,
         full_name: demoRole ? 'Demo User' : (authUser.email || 'User'),
+        email: authUser.email,
       })
     } finally {
-      fetchingRef.current = false
       if (active) setLoading(false)
     }
   }
 
   async function signIn(email, password) {
     assertSupabaseConfigured()
-    // Do NOT wrap signInWithPassword in withTimeout — it holds the auth lock
-    // and a timeout rejection leaves the lock held, causing "lock stolen" errors.
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    // No withTimeout wrapper — signInWithPassword holds the auth lock internally.
+    // A timeout rejection would abandon the lock mid-flight → "lock stolen" error.
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     return data
   }
@@ -126,6 +123,7 @@ export function AuthProvider({ children }) {
       email: 'demo@healthid.app',
     })
     setSession({ user: { id: 'demo' } })
+    setLoading(false)
   }
 
   return (

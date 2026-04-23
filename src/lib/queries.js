@@ -326,15 +326,16 @@ export async function getWorkerDetailById(workerId) {
     .from('workers')
     .select('id, user_id, health_id, date_of_birth, gender, blood_type, region, occupation')
     .eq('id', workerId)
-    .single()
+    .maybeSingle()
 
   if (workerError) throw workerError
+  if (!worker) throw new Error('Worker not found')
 
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('full_name, phone, preferred_language')
     .eq('id', worker.user_id)
-    .single()
+    .maybeSingle()
 
   if (userError) throw userError
 
@@ -403,15 +404,16 @@ export async function getWorkerByUserId(userId) {
     .from('workers')
     .select('id, user_id, health_id, date_of_birth, gender, blood_type, region, occupation')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
   if (workerError) throw workerError
+  if (!worker) throw new Error('Worker profile not found')
 
   const { data: userProfile, error: userError } = await supabase
     .from('users')
     .select('full_name, phone, preferred_language')
     .eq('id', userId)
-    .single()
+    .maybeSingle()
 
   if (userError) throw userError
 
@@ -428,9 +430,9 @@ export async function getWorkerByUserId(userId) {
     .from('nfc_tokens')
     .select('token, is_active, last_used')
     .eq('worker_id', worker.id)
-    .single()
+    .maybeSingle()
 
-  if (tokenError && tokenError.code !== 'PGRST116') throw tokenError
+  if (tokenError) throw tokenError
 
   const latestScore = scoreRows?.[0]
   const riskLevel = normalizeRiskLevel(latestScore?.risk_level, latestScore?.score)
@@ -536,9 +538,10 @@ export async function getWorkerByNfcToken(token) {
     .from('nfc_tokens')
     .select('worker_id, token, is_active, last_used')
     .eq('token', token)
-    .single()
+    .maybeSingle()
 
   if (tokenError) throw tokenError
+  if (!tokenRow) throw new Error('NFC token not found')
 
   const worker = await getWorkerById(tokenRow.worker_id)
   return {

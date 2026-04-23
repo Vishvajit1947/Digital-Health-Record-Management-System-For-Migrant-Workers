@@ -22,8 +22,8 @@ import { LANGUAGES } from '../lib/constants'
 import { useTranslation } from 'react-i18next'
 
 const ROLE_ROUTES = {
-  worker: '/dashboard/worker',
-  doctor: '/dashboard/doctor',
+  worker: '/worker/dashboard',
+  doctor: '/doctor/dashboard',
   admin: '/admin/dashboard',
 }
 
@@ -94,9 +94,9 @@ export default function Home() {
     setIsClient(true)
   }, [])
 
-  function handleDemoLogin(role) {
-    demoLogin(role)
-    navigate(ROLE_ROUTES[role], { replace: true })
+  function handleDemoLogin(demoRole) {
+    demoLogin(demoRole)
+    navigate(ROLE_ROUTES[demoRole] || '/worker/dashboard', { replace: true })
   }
 
   async function handleGetStarted() {
