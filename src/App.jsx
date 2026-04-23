@@ -47,6 +47,36 @@ function ProtectedLayout({ role, children }) {
   )
 }
 
+// Guards the /patient/:token route.
+// Waits for full auth resolution (loading covers session + role fetch),
+// then redirects unauthenticated users to login preserving the NFC URL,
+// and redirects non-doctors to their own dashboard.
+function NfcPatientGuard({ children }) {
+  const { session, role, loading } = useAuth()
+  const location = useLocation()
+
+  // Show spinner while auth is resolving OR while role is still being fetched.
+  // role=null with loading=false is a transient state during SIGNED_IN event handling.
+  if (loading || (session && !role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  if (role !== 'doctor') {
+    const fallback = { worker: '/worker/dashboard', admin: '/admin/dashboard' }
+    return <Navigate to={fallback[role] || '/'} replace />
+  }
+
+  return <AppLayout>{children}</AppLayout>
+}
+
 function AdminRouteGuard({ children }) {
   const { session, role, loading } = useAuth()
   const location = useLocation()
@@ -92,8 +122,8 @@ export default function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
-                {/* Public NFC patient link */}
-                <Route path="/patient/:token/:patientName?" element={<PatientAccess />} />
+                {/* NFC patient link — auth-gated, renders inside AppLayout */}
+                <Route path="/patient/:token/:patientName?" element={<NfcPatientGuard><PatientAccess /></NfcPatientGuard>} />
 
                 {/* Worker routes */}
                 <Route path="/dashboard/worker" element={<Navigate to="/worker/dashboard" replace />} />

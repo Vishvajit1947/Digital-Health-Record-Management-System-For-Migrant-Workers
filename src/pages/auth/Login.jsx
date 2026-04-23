@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Nfc, Mail, Lock } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -6,98 +6,86 @@ import { useLanguage } from '../../context/LanguageContext'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 import { LANGUAGES } from '../../lib/constants'
-import { supabase } from '../../lib/supabase'
-import { isSupabaseConfigured, withTimeout } from '../../lib/supabaseClient'
+import { isSupabaseConfigured } from '../../lib/supabaseClient'
+
+const ROLE_REDIRECT = {
+  worker: '/worker/dashboard',
+  doctor: '/doctor/dashboard',
+  admin: '/admin/dashboard',
+}
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [authChecking, setAuthChecking] = useState(true)
-  const { signIn, demoLogin, role } = useAuth()
+  const [submitting, setSubmitting] = useState(false)
+
+  // AuthContext is the single source of truth — no extra supabase calls here.
+  const { signIn, demoLogin, role, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { setLanguage } = useLanguage()
   const { t, i18n } = useTranslation()
 
-  const ROLE_REDIRECT = { worker: '/dashboard/worker', doctor: '/dashboard/doctor', admin: '/admin/dashboard' }
-  const intendedPath = location.state?.from?.pathname
+  // Capture intended path once on mount into a ref so it never becomes a reactive dep.
+  const intendedPath = useRef(location.state?.from?.pathname || null)
 
-  function getRedirectTarget(currentRole) {
-    if (currentRole === 'doctor' && intendedPath) return intendedPath
-    return ROLE_REDIRECT[currentRole] || ROLE_REDIRECT.worker
+  // Redirect fires exactly once — ref prevents double-navigation.
+  const didRedirect = useRef(false)
+
+  function getTarget(currentRole) {
+    return intendedPath.current || ROLE_REDIRECT[currentRole] || '/worker/dashboard'
   }
 
+  // Single effect: fires when auth resolves. If already logged in → redirect immediately.
+  // If not logged in (role is null after loading) → stay and show form.
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-
-    let mounted = true
-
-    async function checkExistingSession() {
-      if (!isSupabaseConfigured) {
-        if (mounted) setAuthChecking(false)
-        return
-      }
-
-      try {
-        const { data, error } = await withTimeout(
-          supabase.auth.getSession(),
-          undefined,
-          'Session check timed out. Please refresh and retry.',
-        )
-        if (!mounted || error || !data?.session?.user) return
-
-        // If role is already known, redirect immediately. Otherwise let AuthContext resolve it.
-        if (role) {
-          navigate(getRedirectTarget(role), { replace: true })
-        }
-      } finally {
-        if (mounted) setAuthChecking(false)
-      }
-    }
-
-    checkExistingSession()
-
-    return () => {
-      mounted = false
-    }
-  }, [navigate, intendedPath])
-
-  useEffect(() => {
-    if (!role || loading) return
-    navigate(getRedirectTarget(role), { replace: true })
-  }, [role, loading, navigate, intendedPath])
+    if (authLoading) return
+    if (!role) return
+    if (didRedirect.current) return
+    didRedirect.current = true
+    navigate(getTarget(role), { replace: true })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, role])
 
   async function handleSubmit(e) {
     e.preventDefault()
-
     if (!isSupabaseConfigured) {
-      toast.error('Supabase env vars are missing on this deployment. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.')
-      setAuthChecking(false)
+      toast.error('Supabase is not configured. Add env vars in Vercel.')
       return
     }
-
-    setLoading(true)
+    setSubmitting(true)
     try {
       await signIn(email, password)
       toast.success(t('toast_welcome_back'))
+      // Redirect handled by the useEffect above once AuthContext sets role.
     } catch (err) {
       toast.error(err.message || t('toast_login_failed'))
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
   function handleDemoLogin(demoRole) {
+    if (didRedirect.current) return
+    didRedirect.current = true
     demoLogin(demoRole)
     toast.success(t('toast_demo_login', { role: t(demoRole) }))
-    navigate(getRedirectTarget(demoRole), { replace: true })
+    navigate(getTarget(demoRole), { replace: true })
+  }
+
+  // While auth is resolving, show a neutral spinner — not the form.
+  // This prevents the form from flashing before an already-logged-in user is redirected.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200">
             <Nfc className="w-9 h-9 text-white" />
@@ -106,7 +94,6 @@ export default function Login() {
           <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">{t('tagline')}</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8">
           <h2 className="text-xl font-semibold leading-relaxed text-slate-800 dark:text-slate-100 mb-6">{t('login_heading')}</h2>
 
@@ -147,10 +134,10 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading || authChecking}
+              disabled={submitting}
               className="w-full bg-indigo-600 text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
-              {loading || authChecking ? t('login_signing_in') : t('login')}
+              {submitting ? t('login_signing_in') : t('login')}
             </button>
           </form>
 
@@ -169,7 +156,6 @@ export default function Login() {
             ← Back to Home
           </button>
 
-          {/* Demo Login */}
           <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
             <p className="text-xs text-center text-slate-400 mb-3 uppercase tracking-wide font-medium">{t('demo_access')}</p>
             <div className="grid grid-cols-3 gap-2">
@@ -185,7 +171,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Language selector */}
           <div className="mt-4">
             <select
               value={i18n.language}
