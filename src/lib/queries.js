@@ -506,6 +506,29 @@ export async function getWorkerLatestHealthScore(workerId) {
   return data?.[0] || null
 }
 
+/**
+ * Resolves the doctors.id (PK) from an auth user id.
+ * health_records.doctor_id is a FK to doctors.id, NOT auth.users.id.
+ * Returns null if no doctor profile exists for this user.
+ */
+export async function getDoctorIdByUserId(authUserId) {
+  if (!authUserId) return null
+
+  const { data, error } = await supabase
+    .from('doctors')
+    .select('id')
+    .eq('user_id', authUserId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('getDoctorIdByUserId error:', error)
+    return null
+  }
+
+  console.log('Auth ID:', authUserId, '→ Doctor ID:', data?.id ?? null)
+  return data?.id ?? null
+}
+
 export async function getWorkerByNfcToken(token) {
   if (!token) throw new Error('nfc token is required')
 

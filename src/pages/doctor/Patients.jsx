@@ -4,6 +4,7 @@ import { CalendarDays, FileText, Users } from 'lucide-react'
 import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { formatDate } from '../../lib/helpers'
 import { supabase } from '../../lib/supabase'
+import { getDoctorIdByUserId } from '../../lib/queries'
 
 export default function DoctorPatients() {
   const navigate = useNavigate()
@@ -22,11 +23,11 @@ export default function DoctorPatients() {
 
       try {
         const { data } = await supabase.auth.getUser()
-        const doctorId = data?.user?.id
+        const authUserId = data?.user?.id
 
-        console.log('Doctor ID:', doctorId)
+        console.log('Auth ID:', authUserId)
 
-        if (!doctorId) {
+        if (!authUserId) {
           navigate('/login', { replace: true })
           return
         }
@@ -35,48 +36,32 @@ export default function DoctorPatients() {
           setDoctorName(data?.user?.email || 'Doctor')
         }
 
-        const { data: directRecords, error: directRecordsError } = await supabase
+        // Resolve doctors.id — health_records.doctor_id is a FK to doctors.id, not auth uid
+        const doctorId = await getDoctorIdByUserId(authUserId)
+        console.log('Doctor ID:', doctorId)
+
+        if (!doctorId) {
+          if (!cancelled) setLoading(false)
+          return
+        }
+
+        const { data: resolvedRecords, error: recordsError } = await supabase
           .from('health_records')
           .select('id, worker_id, doctor_id, visit_date, diagnosis')
           .eq('doctor_id', doctorId)
           .order('visit_date', { ascending: false })
 
-        if (directRecordsError) throw directRecordsError
+        if (recordsError) throw recordsError
 
-        let effectiveDoctorId = doctorId
-        let resolvedRecords = directRecords || []
-
-        if (resolvedRecords.length === 0) {
-          const { data: doctorRow, error: doctorRowError } = await supabase
-            .from('doctors')
-            .select('id, user_id')
-            .eq('user_id', doctorId)
-            .maybeSingle()
-
-          if (doctorRowError) throw doctorRowError
-
-          if (doctorRow?.id) {
-            effectiveDoctorId = doctorRow.id
-
-            const { data: fallbackRecords, error: fallbackRecordsError } = await supabase
-              .from('health_records')
-              .select('id, worker_id, doctor_id, visit_date, diagnosis')
-              .eq('doctor_id', doctorRow.id)
-              .order('visit_date', { ascending: false })
-
-            if (fallbackRecordsError) throw fallbackRecordsError
-            resolvedRecords = fallbackRecords || []
-          }
-        }
-
-        console.log('Records:', resolvedRecords)
+        const resolvedRecordsData = resolvedRecords || []
+        console.log('Records:', resolvedRecordsData)
 
         if (!cancelled) {
-          setRecords(resolvedRecords)
+          setRecords(resolvedRecordsData)
         }
 
         const uniqueWorkerIds = Array.from(
-          new Set((resolvedRecords || []).map(record => record.worker_id).filter(Boolean)),
+          new Set((resolvedRecordsData).map(record => record.worker_id).filter(Boolean)),
         )
 
         const workerMap = new Map()
@@ -96,7 +81,7 @@ export default function DoctorPatients() {
 
         const uniquePatients = new Map()
 
-        for (const record of resolvedRecords || []) {
+        for (const record of resolvedRecordsData) {
           const worker = workerMap.get(record.worker_id)
           const patientId = worker?.id || record.worker_id
 

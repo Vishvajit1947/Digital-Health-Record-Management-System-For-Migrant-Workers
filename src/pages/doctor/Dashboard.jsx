@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Users, Activity, ClipboardList, Stethoscope, ScanLine, Search, ExternalLink } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Users, Activity, ClipboardList, Stethoscope, ScanLine, ExternalLink } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
 import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { formatDate } from '../../lib/helpers'
-import { RISK_BADGE_CLASSES } from '../../lib/constants'
 import { supabase } from '../../lib/supabase'
-import { getWorkerByNfcToken } from '../../lib/queries'
-import toast from 'react-hot-toast'
+import { getDoctorIdByUserId } from '../../lib/queries'
 import { useTranslation } from 'react-i18next'
 
 export default function DoctorDashboard() {
   const { t } = useTranslation()
-  const [searchId, setSearchId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [recentPatients, setRecentPatients] = useState([])
-  const navigate = useNavigate()
 
   useEffect(() => {
     let cancelled = false
@@ -26,13 +22,28 @@ export default function DoctorDashboard() {
       setError('')
 
       try {
+        const { data: authData } = await supabase.auth.getUser()
+        const authUserId = authData?.user?.id
+
+        // Resolve doctors.id — health_records.doctor_id is a FK to doctors.id, not auth uid
+        const doctorId = await getDoctorIdByUserId(authUserId)
+        console.log('Doctor ID:', doctorId)
+
+        if (!doctorId) {
+          if (!cancelled) setLoading(false)
+          return
+        }
+
         const { data, error: recentError } = await supabase
           .from('health_records')
           .select('id, worker_id, visit_date, diagnosis, icd10_code, workers(id, health_id, region, user_id, users(full_name))')
+          .eq('doctor_id', doctorId)
           .order('visit_date', { ascending: false })
           .limit(8)
 
         if (recentError) throw recentError
+
+        console.log('Filtered Data:', data)
 
         const normalized = (data || []).map(record => {
           const worker = Array.isArray(record.workers) ? record.workers[0] : record.workers
@@ -43,7 +54,6 @@ export default function DoctorDashboard() {
             health_id: worker?.health_id || '—',
             last_visit: record.visit_date,
             diagnosis: record.diagnosis || '—',
-            risk: 'Low',
             region: worker?.region || '—',
           }
         })
@@ -68,33 +78,13 @@ export default function DoctorDashboard() {
 
   const stats = useMemo(() => [
     { title: t('patients_today'), value: recentPatients.length, icon: Users, color: 'indigo' },
-    { title: t('total_patients'), value: new Set(recentPatients.map(patient => patient.worker_id)).size, icon: Stethoscope, color: 'green' },
-    { title: t('pending_followups'), value: recentPatients.filter(patient => !patient.last_visit).length, icon: ClipboardList, color: 'amber' },
-    { title: t('records_this_week'), value: recentPatients.filter(patient => {
-      const visitDate = new Date(patient.last_visit)
-      const daysAgo = (Date.now() - visitDate.getTime()) / 86400000
+    { title: t('total_patients'), value: new Set(recentPatients.map(p => p.worker_id)).size, icon: Stethoscope, color: 'green' },
+    { title: t('pending_followups'), value: recentPatients.filter(p => !p.last_visit).length, icon: ClipboardList, color: 'amber' },
+    { title: t('records_this_week'), value: recentPatients.filter(p => {
+      const daysAgo = (Date.now() - new Date(p.last_visit).getTime()) / 86400000
       return daysAgo <= 7
     }).length, icon: Activity, color: 'purple' },
   ], [recentPatients, t])
-
-  function handleSearch(e) {
-    e.preventDefault()
-    const value = searchId.trim()
-    if (!value) return
-    navigate(`/doctor/patient/${encodeURIComponent(value)}`)
-  }
-
-  async function handleOpenNfcToken() {
-    const value = searchId.trim()
-    if (!value) return
-
-    try {
-      const worker = await getWorkerByNfcToken(value)
-      navigate(`/doctor/patient/${encodeURIComponent(worker.id)}`)
-    } catch {
-      toast.error(t('patient_not_found_nfc'))
-    }
-  }
 
   return (
     <div className="space-y-6 page-enter leading-relaxed">
@@ -107,39 +97,16 @@ export default function DoctorDashboard() {
         {stats.map(stat => <StatCard key={stat.title} title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} />)}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link to="/doctor/scan" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-6 flex items-center gap-4 transition-colors group card-hover">
-          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-            <ScanLine className="w-7 h-7" />
-          </div>
-          <div>
-            <p className="font-semibold text-lg break-words">{t('scan_nfc_patient')}</p>
-            <p className="text-indigo-200 text-sm break-words">{t('scan_nfc_patient_subtitle')}</p>
-          </div>
-          <ExternalLink className="w-5 h-5 ml-auto opacity-60 group-hover:opacity-100" />
-        </Link>
-
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
-          <p className="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
-            <Search className="w-5 h-5 text-slate-400" /> {t('open_patient_by_id')}
-          </p>
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={searchId}
-              onChange={e => setSearchId(e.target.value)}
-              placeholder={t('enter_worker_or_nfc')}
-              className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <button type="submit" className="bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm hover:bg-indigo-700 transition-colors">
-              {t('open')}
-            </button>
-            <button type="button" onClick={handleOpenNfcToken} className="border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-              {t('resolve_nfc')}
-            </button>
-          </form>
+      <Link to="/doctor/scan" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-8 flex items-center gap-6 transition-colors group card-hover">
+        <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+          <ScanLine className="w-8 h-8" />
         </div>
-      </div>
+        <div>
+          <p className="font-semibold text-xl break-words">{t('scan_nfc_patient')}</p>
+          <p className="text-indigo-200 text-sm mt-1 break-words">{t('scan_nfc_patient_subtitle')}</p>
+        </div>
+        <ExternalLink className="w-5 h-5 ml-auto opacity-60 group-hover:opacity-100 shrink-0" />
+      </Link>
 
       {loading && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8 flex items-center justify-center">
@@ -178,7 +145,9 @@ export default function DoctorDashboard() {
               ))}
             </tbody>
           </table>
-          {!loading && recentPatients.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">{t('no_data')}</p>}
+          {!loading && recentPatients.length === 0 && (
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-4">{t('no_data')}</p>
+          )}
         </div>
       </div>
     </div>

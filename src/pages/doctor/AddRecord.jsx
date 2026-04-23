@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Upload, CheckCircle, Thermometer, Weight, Activity, Heart } from 'lucide-react'
 import { calculateBMI } from '../../lib/helpers'
-import { addHealthRecord } from '../../lib/queries'
+import { addHealthRecord, getDoctorIdByUserId } from '../../lib/queries'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
@@ -49,6 +49,20 @@ export default function AddRecord() {
     setLoading(true)
 
     try {
+      const { data: authData } = await supabase.auth.getUser()
+      const authUserId = authData?.user?.id || null
+      console.log('Auth ID:', authUserId)
+
+      // Resolve doctors.id — health_records.doctor_id is a FK to doctors.id, not auth uid
+      const doctorId = await getDoctorIdByUserId(authUserId)
+      console.log('Doctor ID:', doctorId)
+
+      if (!doctorId) {
+        toast.error('Doctor profile not found. Please contact your administrator.')
+        setLoading(false)
+        return
+      }
+
       const prescriptionsPayload = prescriptions.filter(p => p.drug.trim()).map(p => ({
         drug_name: p.drug,
         dosage: p.dosage,
@@ -71,6 +85,7 @@ export default function AddRecord() {
 
       const record = await addHealthRecord({
         worker_id: patientId,
+        doctor_id: doctorId,
         diagnosis: diagnosis.text,
         icd10_code: diagnosis.icd10,
         notes: diagnosis.notes,
