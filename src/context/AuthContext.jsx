@@ -142,13 +142,14 @@ export function AuthProvider({ children }) {
     return data
   }
 
-  async function signOut() {
+  async function signOut(onComplete) {
     await supabase.auth.signOut()
     localStorage.removeItem('demo_role')
     localStorage.removeItem('admin_portal_access')
     setUser(null)
     setRole(null)
     setSession(null)
+    if (typeof onComplete === 'function') onComplete()
   }
 
   // Demo login function for development

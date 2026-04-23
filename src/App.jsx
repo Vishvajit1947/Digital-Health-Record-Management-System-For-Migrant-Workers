@@ -17,7 +17,6 @@ import PatientAccess from './pages/doctor/PatientAccess'
 // Auth pages (eager)
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
-import AdminLogin from './pages/admin/Login'
 
 // Worker pages
 import WorkerDashboard from './pages/worker/Dashboard'
@@ -61,12 +60,12 @@ function AdminRouteGuard({ children }) {
   }
 
   if (!session) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   const simulatedAdminAccess = localStorage.getItem('admin_portal_access') === 'true'
   if (role !== 'admin' && !simulatedAdminAccess) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return <AppLayout>{children}</AppLayout>
@@ -92,7 +91,6 @@ export default function App() {
                 {/* Auth */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
 
                 {/* Public NFC patient link */}
                 <Route path="/patient/:token/:patientName?" element={<PatientAccess />} />

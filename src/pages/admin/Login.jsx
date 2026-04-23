@@ -110,6 +110,14 @@ export default function AdminLogin() {
             {t('register')}
           </Link>
         </p>
+
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="w-full mt-4 border border-slate-200 dark:border-slate-600 rounded-xl px-5 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+        >
+          ← Back to Home
+        </button>
       </div>
     </div>
   )

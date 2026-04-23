@@ -161,6 +161,14 @@ export default function Login() {
             </Link>
           </p>
 
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="w-full mt-4 border border-slate-200 dark:border-slate-600 rounded-xl px-5 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+          >
+            ← Back to Home
+          </button>
+
           {/* Demo Login */}
           <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
             <p className="text-xs text-center text-slate-400 mb-3 uppercase tracking-wide font-medium">{t('demo_access')}</p>
