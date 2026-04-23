@@ -4,20 +4,34 @@ import { assertSupabaseConfigured } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
+// If auth hasn't resolved within this time, force loading=false so the UI
+// never shows an infinite spinner (e.g. network timeout, Supabase unreachable).
+const AUTH_TIMEOUT_MS = 5000
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser]       = useState(null)
   const [role, setRole]       = useState(null)
-  // loading=true until we know whether the user is logged in or not
   const [loading, setLoading] = useState(true)
 
-  // Prevent a second loadProfile call if session object reference changes
-  // but the user id hasn't changed (e.g. TOKEN_REFRESHED).
+  // Tracks the last uid we fetched a profile for.
+  // Prevents re-fetching on TOKEN_REFRESHED (same uid, new token).
   const lastProfileUid = useRef(null)
 
-  // ── Effect 1: subscribe to auth state changes (SYNCHRONOUS callback only) ──
-  // Never do async work inside onAuthStateChange — it holds the Supabase auth
-  // lock and causes "Lock not released within 5000ms" warnings.
+  // ── Fail-safe timeout ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(prev => {
+        if (prev) console.warn('AuthContext: timed out waiting for auth — forcing loading=false')
+        return false
+      })
+    }, AUTH_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // ── Effect 1: auth state listener (must be synchronous) ───────────────────
+  // Async work inside onAuthStateChange holds the Supabase auth lock →
+  // "Lock not released within 5000ms". Keep this callback synchronous only.
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
@@ -25,26 +39,21 @@ export function AuthProvider({ children }) {
       (event, newSession) => {
         setSession(newSession)
         if (!newSession) {
-          // Signed out — clear state immediately
           lastProfileUid.current = null
           setUser(null)
           setRole(null)
           setLoading(false)
         }
-        // If newSession exists, Effect 2 picks it up and loads the profile
+        // newSession present → Effect 2 handles the async profile fetch
       }
     )
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // ── Effect 2: load user profile from DB whenever session user changes ──
-  // Runs outside the auth lock — safe to be async.
+  // ── Effect 2: async profile fetch (outside the auth lock) ─────────────────
   useEffect(() => {
     if (!session?.user) return
-
-    // Skip if we already loaded the profile for this exact user id
-    // (avoids re-fetching on TOKEN_REFRESHED which keeps the same uid)
     if (lastProfileUid.current === session.user.id) return
 
     lastProfileUid.current = session.user.id
@@ -69,29 +78,20 @@ export function AuthProvider({ children }) {
           setUser(data)
           setRole(data.role || metadataRole || 'worker')
         } else {
-          // No profile row yet — use auth metadata
           const fallback = metadataRole || 'worker'
           setRole(fallback)
-          setUser({
-            id: authUser.id,
-            role: fallback,
-            full_name: authUser.email || 'User',
-            email: authUser.email,
-          })
+          setUser({ id: authUser.id, role: fallback, full_name: authUser.email || 'User', email: authUser.email })
         }
       } catch {
         if (cancelled) return
         const demoRole = localStorage.getItem('demo_role')
         const fallback = demoRole || metadataRole || 'worker'
         setRole(fallback)
-        setUser({
-          id: authUser.id,
-          role: fallback,
-          full_name: demoRole ? 'Demo User' : (authUser.email || 'User'),
-          email: authUser.email,
-        })
+        setUser({ id: authUser.id, role: fallback, full_name: demoRole ? 'Demo User' : (authUser.email || 'User'), email: authUser.email })
       } finally {
-        if (!cancelled) setLoading(false)
+        // Always call setLoading(false) — even when cancelled.
+        // Skipping it when cancelled=true leaves loading=true forever on remount.
+        setLoading(false)
       }
     }
 
@@ -118,7 +118,6 @@ export function AuthProvider({ children }) {
   }
 
   function demoLogin(demoRole) {
-    // Demo mode: set a synthetic session so guards treat the user as logged in
     lastProfileUid.current = 'demo'
     localStorage.setItem('demo_role', demoRole)
     setRole(demoRole)
