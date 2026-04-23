@@ -173,7 +173,7 @@ export default function Register() {
 
             <div>
               <label className={labelCls}>{t('password')}</label>
-              <input type="password" value={form.password} onChange={e => update('password', e.target.value)} placeholder={t('min_8_characters')} className={inputCls} minLength={8} required />
+              <input type="password" autoComplete="new-password" value={form.password} onChange={e => update('password', e.target.value)} placeholder={t('min_8_characters')} className={inputCls} minLength={8} required />
             </div>
 
             {/* Worker specific */}

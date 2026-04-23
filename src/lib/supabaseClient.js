@@ -30,9 +30,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // Explicit storage key prevents lock conflicts when multiple Supabase
-    // clients are accidentally instantiated (e.g. from both lib/supabase.js
-    // and lib/supabaseClient.js being imported separately).
     storageKey: 'healthid-auth-token',
   },
 })
+
+// Remove the old default Supabase storage key if it exists.
+// When storageKey was changed, the old token stays in localStorage and
+// causes "Invalid Refresh Token" 400 errors on every page load.
+if (typeof window !== 'undefined') {
+  const oldKey = `sb-${rawSupabaseUrl.replace('https://', '').split('.')[0]}-auth-token`
+  if (localStorage.getItem(oldKey)) {
+    localStorage.removeItem(oldKey)
+  }
+}
