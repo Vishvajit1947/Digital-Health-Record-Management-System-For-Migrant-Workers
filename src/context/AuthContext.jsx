@@ -1,11 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import {
-  assertSupabaseConfigured,
-  isSupabaseConfigured,
-  PROFILE_REQUEST_TIMEOUT_MS,
-  withTimeout,
-} from '../lib/supabaseClient'
+import { assertSupabaseConfigured, isSupabaseConfigured } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
@@ -20,9 +15,6 @@ export function AuthProvider({ children }) {
 
     let active = true
 
-    // onAuthStateChange is the single source of truth.
-    // It fires INITIAL_SESSION on mount, then SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED.
-    // No separate getSession() call needed — that would create a second concurrent lock.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!active) return
@@ -32,6 +24,7 @@ export function AuthProvider({ children }) {
         if (newSession?.user) {
           await fetchUserProfile(newSession.user, active)
         } else {
+          // No session — clear everything and stop loading
           setUser(null)
           setRole(null)
           setLoading(false)
@@ -50,24 +43,27 @@ export function AuthProvider({ children }) {
       authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
 
     try {
-      // maybeSingle() returns null instead of throwing when no row found
-      const { data, error } = await withTimeout(
-        supabase.from('users').select('*').eq('id', authUser.id).maybeSingle(),
-        PROFILE_REQUEST_TIMEOUT_MS,
-        'Timed out loading profile.',
-      )
+      // Direct query — no withTimeout wrapper.
+      // withTimeout uses Promise.race() which abandons the Supabase request mid-flight,
+      // leaving the auth lock held → "Lock broken by another request" AbortError.
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, role, full_name, phone, preferred_language')
+        .eq('id', authUser.id)
+        .maybeSingle()
 
       if (!active) return
 
       if (error) {
-        console.error('fetchUserProfile error:', error.message)
+        // Log but don't crash — fall through to metadata fallback below
+        console.error('fetchUserProfile DB error:', error.message)
       }
 
       if (data) {
         setUser(data)
         setRole(data.role || metadataRole || 'worker')
       } else {
-        // No profile row yet — use metadata or default
+        // No profile row yet (e.g. just registered) — use auth metadata
         const fallbackRole = metadataRole || 'worker'
         setRole(fallbackRole)
         setUser({
@@ -77,9 +73,11 @@ export function AuthProvider({ children }) {
           email: authUser.email,
         })
       }
-    } catch {
+    } catch (err) {
       if (!active) return
-      // DB unreachable — fall back to demo role or metadata
+      // Only set a fallback if we have a real authenticated user.
+      // Do NOT set role/user from a catch block when there's no session —
+      // that would make NfcPatientGuard think the user is logged in.
       const demoRole = localStorage.getItem('demo_role')
       const fallback = demoRole || metadataRole || 'worker'
       setRole(fallback)
@@ -96,8 +94,6 @@ export function AuthProvider({ children }) {
 
   async function signIn(email, password) {
     assertSupabaseConfigured()
-    // No withTimeout wrapper — signInWithPassword holds the auth lock internally.
-    // A timeout rejection would abandon the lock mid-flight → "lock stolen" error.
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
     return data
