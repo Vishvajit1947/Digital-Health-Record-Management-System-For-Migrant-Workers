@@ -168,7 +168,7 @@ export default function Register() {
 
             <div>
               <label className={labelCls}>{t('email')}</label>
-              <input type="email" value={form.email} onChange={e => update('email', e.target.value)} placeholder="you@example.com" className={inputCls} required />
+              <input type="email" autoComplete="username" value={form.email} onChange={e => update('email', e.target.value)} placeholder="you@example.com" className={inputCls} required />
             </div>
 
             <div>

@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { assertSupabaseConfigured, isSupabaseConfigured } from '../lib/supabaseClient'
+import { assertSupabaseConfigured } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
 
@@ -10,87 +10,85 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Keep a ref to the latest session so the profile fetch effect can read it
+  const sessionRef = useRef(null)
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
-    let active = true
+    // onAuthStateChange MUST be synchronous — no async work inside the callback.
+    // Doing async work (DB queries) inside the listener holds the Supabase auth lock
+    // and causes "Lock not released within 5000ms" warnings.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      sessionRef.current = newSession
+      setSession(newSession)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
-        if (!active) return
-
-        setSession(newSession)
-
-        if (newSession?.user) {
-          await fetchUserProfile(newSession.user, active)
-        } else {
-          // No session — clear everything and stop loading
-          setUser(null)
-          setRole(null)
-          setLoading(false)
-        }
+      if (!newSession) {
+        setUser(null)
+        setRole(null)
+        setLoading(false)
       }
-    )
+      // If newSession exists, the useEffect below will pick it up and fetch the profile
+    })
 
-    return () => {
-      active = false
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchUserProfile(authUser, active = true) {
-    const metadataRole =
-      authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
+  // Separate effect handles the async DB work — runs whenever session changes.
+  // This keeps the onAuthStateChange callback synchronous (no lock contention).
+  useEffect(() => {
+    if (!session?.user) return
 
-    try {
-      // Direct query — no withTimeout wrapper.
-      // withTimeout uses Promise.race() which abandons the Supabase request mid-flight,
-      // leaving the auth lock held → "Lock broken by another request" AbortError.
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, role, full_name, phone, preferred_language')
-        .eq('id', authUser.id)
-        .maybeSingle()
+    let cancelled = false
 
-      if (!active) return
+    async function loadProfile() {
+      const authUser = session.user
+      const metadataRole =
+        authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
 
-      if (error) {
-        // Log but don't crash — fall through to metadata fallback below
-        console.error('fetchUserProfile DB error:', error.message)
-      }
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, role, full_name, phone, preferred_language')
+          .eq('id', authUser.id)
+          .maybeSingle()
 
-      if (data) {
-        setUser(data)
-        setRole(data.role || metadataRole || 'worker')
-      } else {
-        // No profile row yet (e.g. just registered) — use auth metadata
-        const fallbackRole = metadataRole || 'worker'
-        setRole(fallbackRole)
+        if (cancelled) return
+
+        if (error) console.error('loadProfile error:', error.message)
+
+        if (data) {
+          setUser(data)
+          setRole(data.role || metadataRole || 'worker')
+        } else {
+          const fallbackRole = metadataRole || 'worker'
+          setRole(fallbackRole)
+          setUser({
+            id: authUser.id,
+            role: fallbackRole,
+            full_name: authUser.email || 'User',
+            email: authUser.email,
+          })
+        }
+      } catch {
+        if (cancelled) return
+        const demoRole = localStorage.getItem('demo_role')
+        const fallback = demoRole || metadataRole || 'worker'
+        setRole(fallback)
         setUser({
           id: authUser.id,
-          role: fallbackRole,
-          full_name: authUser.email || 'User',
+          role: fallback,
+          full_name: demoRole ? 'Demo User' : (authUser.email || 'User'),
           email: authUser.email,
         })
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    } catch (err) {
-      if (!active) return
-      // Only set a fallback if we have a real authenticated user.
-      // Do NOT set role/user from a catch block when there's no session —
-      // that would make NfcPatientGuard think the user is logged in.
-      const demoRole = localStorage.getItem('demo_role')
-      const fallback = demoRole || metadataRole || 'worker'
-      setRole(fallback)
-      setUser({
-        id: authUser.id,
-        role: fallback,
-        full_name: demoRole ? 'Demo User' : (authUser.email || 'User'),
-        email: authUser.email,
-      })
-    } finally {
-      if (active) setLoading(false)
     }
-  }
+
+    loadProfile()
+    return () => { cancelled = true }
+  }, [session])
 
   async function signIn(email, password) {
     assertSupabaseConfigured()
@@ -112,20 +110,13 @@ export function AuthProvider({ children }) {
   function demoLogin(demoRole) {
     localStorage.setItem('demo_role', demoRole)
     setRole(demoRole)
-    setUser({
-      id: 'demo',
-      role: demoRole,
-      full_name: 'Demo User',
-      email: 'demo@healthid.app',
-    })
+    setUser({ id: 'demo', role: demoRole, full_name: 'Demo User', email: 'demo@healthid.app' })
     setSession({ user: { id: 'demo' } })
     setLoading(false)
   }
 
   return (
-    <AuthContext.Provider
-      value={{ session, user, role, loading, signIn, signOut, demoLogin }}
-    >
+    <AuthContext.Provider value={{ session, user, role, loading, signIn, signOut, demoLogin }}>
       {children}
     </AuthContext.Provider>
   )
