@@ -5,9 +5,11 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { formatDate } from '../../lib/helpers'
 import { supabase } from '../../lib/supabase'
 import { getDoctorIdByUserId } from '../../lib/queries'
+import { useAuth } from '../../context/AuthContext'
 
 export default function DoctorPatients() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [patients, setPatients] = useState([])
@@ -15,6 +17,7 @@ export default function DoctorPatients() {
   const [doctorName, setDoctorName] = useState('')
 
   useEffect(() => {
+    if (!user?.id) { navigate('/login', { replace: true }); return }
     let cancelled = false
 
     async function loadPatients() {
@@ -22,23 +25,8 @@ export default function DoctorPatients() {
       setError('')
 
       try {
-        const { data } = await supabase.auth.getUser()
-        const authUserId = data?.user?.id
-
-        console.log('Auth ID:', authUserId)
-
-        if (!authUserId) {
-          navigate('/login', { replace: true })
-          return
-        }
-
-        if (!cancelled) {
-          setDoctorName(data?.user?.email || 'Doctor')
-        }
-
-        // Resolve doctors.id — health_records.doctor_id is a FK to doctors.id, not auth uid
-        const doctorId = await getDoctorIdByUserId(authUserId)
-        console.log('Doctor ID:', doctorId)
+        if (!cancelled) setDoctorName(user.full_name || user.email || 'Doctor')
+        const doctorId = await getDoctorIdByUserId(user.id)
 
         if (!doctorId) {
           if (!cancelled) setLoading(false)
@@ -112,11 +100,8 @@ export default function DoctorPatients() {
     }
 
     loadPatients()
-
-    return () => {
-      cancelled = true
-    }
-  }, [navigate])
+    return () => { cancelled = true }
+  }, [user?.id, navigate])
 
   const patientCount = patients.length
 

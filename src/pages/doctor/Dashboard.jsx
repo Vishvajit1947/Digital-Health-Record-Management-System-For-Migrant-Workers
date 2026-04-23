@@ -6,15 +6,18 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner'
 import { formatDate } from '../../lib/helpers'
 import { supabase } from '../../lib/supabase'
 import { getDoctorIdByUserId } from '../../lib/queries'
+import { useAuth } from '../../context/AuthContext'
 import { useTranslation } from 'react-i18next'
 
 export default function DoctorDashboard() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [recentPatients, setRecentPatients] = useState([])
 
   useEffect(() => {
+    if (!user?.id) return
     let cancelled = false
 
     async function loadRecentPatients() {
@@ -22,12 +25,7 @@ export default function DoctorDashboard() {
       setError('')
 
       try {
-        const { data: authData } = await supabase.auth.getUser()
-        const authUserId = authData?.user?.id
-
-        // Resolve doctors.id — health_records.doctor_id is a FK to doctors.id, not auth uid
-        const doctorId = await getDoctorIdByUserId(authUserId)
-        console.log('Doctor ID:', doctorId)
+        const doctorId = await getDoctorIdByUserId(user.id)
 
         if (!doctorId) {
           if (!cancelled) setLoading(false)
@@ -70,11 +68,8 @@ export default function DoctorDashboard() {
     }
 
     loadRecentPatients()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => { cancelled = true }
+  }, [user?.id])
 
   const stats = useMemo(() => [
     { title: t('patients_today'), value: recentPatients.length, icon: Users, color: 'indigo' },

@@ -48,15 +48,15 @@ export function AuthProvider({ children }) {
 
     initAuth()
 
-    // Only subscribe to real auth events — INITIAL_SESSION is already handled by initAuth above.
-    // Handling it twice causes loading to toggle true→false→true→false = blink.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!active) return
-      if (event === 'INITIAL_SESSION') return // handled by initAuth
+      if (event === 'INITIAL_SESSION') return
 
       setSession(newSession)
       if (newSession?.user) {
-        await fetchUserRole(newSession.user, active)
+        // Pass setLoadingTrue=false — guards are already rendered, no need to
+        // flash loading spinner again. This prevents the navigation loop.
+        await fetchUserRole(newSession.user, active, false)
       } else {
         setUser(null); setRole(null); setLoading(false)
       }
@@ -68,12 +68,12 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function fetchUserRole(authUser, active = true) {
+  async function fetchUserRole(authUser, active = true, setLoadingTrue = true) {
     const metadataRole = authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
 
-    // Keep loading=true for the entire duration of the DB lookup.
-    // This prevents guards from rendering children with role=null.
-    if (active) setLoading(true)
+    // Only set loading=true on initial auth check, not on post-login SIGNED_IN events.
+    // Setting it on SIGNED_IN causes guards to re-render → navigate → loop.
+    if (active && setLoadingTrue) setLoading(true)
 
     try {
       const { data } = await withTimeout(

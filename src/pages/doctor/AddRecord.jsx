@@ -4,6 +4,7 @@ import { Plus, Trash2, Upload, CheckCircle, Thermometer, Weight, Activity, Heart
 import { calculateBMI } from '../../lib/helpers'
 import { addHealthRecord, getDoctorIdByUserId } from '../../lib/queries'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 
@@ -23,6 +24,7 @@ export default function AddRecord() {
   const { t } = useTranslation()
   const { patientId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [files, setFiles] = useState([])
 
@@ -49,13 +51,7 @@ export default function AddRecord() {
     setLoading(true)
 
     try {
-      const { data: authData } = await supabase.auth.getUser()
-      const authUserId = authData?.user?.id || null
-      console.log('Auth ID:', authUserId)
-
-      // Resolve doctors.id — health_records.doctor_id is a FK to doctors.id, not auth uid
-      const doctorId = await getDoctorIdByUserId(authUserId)
-      console.log('Doctor ID:', doctorId)
+      const doctorId = await getDoctorIdByUserId(user?.id || null)
 
       if (!doctorId) {
         toast.error('Doctor profile not found. Please contact your administrator.')

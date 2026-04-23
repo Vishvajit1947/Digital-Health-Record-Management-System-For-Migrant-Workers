@@ -19,8 +19,6 @@ import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 import { useTheme } from '../context/ThemeContext'
 import { LANGUAGES } from '../lib/constants'
-import { supabase } from '../lib/supabase'
-import { isSupabaseConfigured, withTimeout } from '../lib/supabaseClient'
 import { useTranslation } from 'react-i18next'
 
 const ROLE_ROUTES = {
@@ -31,13 +29,12 @@ const ROLE_ROUTES = {
 
 export default function Home() {
   const navigate = useNavigate()
-  const { demoLogin } = useAuth()
+  const { demoLogin, user, role } = useAuth()
   const { setLanguage } = useLanguage()
   const { darkMode, toggleDark } = useTheme()
   const { i18n, t } = useTranslation()
   const [langOpen, setLangOpen] = useState(false)
   const [isClient, setIsClient] = useState(false)
-  const [redirectLoading, setRedirectLoading] = useState(false)
 
   const roleCards = [
     {
@@ -105,65 +102,13 @@ export default function Home() {
   async function handleGetStarted() {
     if (!isClient || redirectLoading) return
 
-    if (!isSupabaseConfigured) {
-      navigate('/login')
+    // If already logged in via AuthContext, redirect immediately — no extra auth call
+    if (role) {
+      navigate(ROLE_ROUTES[role] || ROLE_ROUTES.worker, { replace: true })
       return
     }
 
-    setRedirectLoading(true)
-    try {
-      const { data, error } = await withTimeout(
-        supabase.auth.getUser(),
-        undefined,
-        'Unable to fetch current user.',
-      )
-      if (error || !data?.user) {
-        navigate('/login')
-        return
-      }
-
-      const userId = data.user.id
-      let resolvedRole = roleFromMetadata(data.user)
-
-      if (!resolvedRole) {
-        const { data: profile } = await withTimeout(
-          supabase
-            .from('users')
-            .select('role')
-            .eq('id', userId)
-            .maybeSingle(),
-          7000,
-          'Timed out while resolving role.',
-        )
-
-        resolvedRole = profile?.role || null
-      }
-
-      if (!resolvedRole) {
-        const { data: workerProfile } = await withTimeout(
-          supabase
-            .from('workers')
-            .select('id')
-            .eq('user_id', userId)
-            .maybeSingle(),
-          7000,
-          'Timed out while resolving worker profile.',
-        )
-
-        if (workerProfile) resolvedRole = 'worker'
-      }
-
-      const targetRoute = ROLE_ROUTES[resolvedRole] || ROLE_ROUTES.worker
-      navigate(targetRoute, { replace: true })
-    } catch {
-      navigate('/login')
-    } finally {
-      setRedirectLoading(false)
-    }
-  }
-
-  function roleFromMetadata(authUser) {
-    return authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
+    navigate('/login')
   }
 
   function handleLanguageChange(code) {
@@ -257,10 +202,10 @@ export default function Home() {
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={handleGetStarted}
-                disabled={!isClient || redirectLoading}
+                disabled={!isClient}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 dark:bg-cyan-400 px-6 py-3.5 text-sm font-semibold text-white dark:text-slate-950 transition hover:bg-indigo-700 dark:hover:bg-cyan-300"
               >
-                {redirectLoading ? 'Loading...' : 'Get Started'}
+                Get Started
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button
