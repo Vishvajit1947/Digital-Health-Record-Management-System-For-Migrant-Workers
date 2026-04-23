@@ -100,14 +100,11 @@ export default function Home() {
   }
 
   async function handleGetStarted() {
-    if (!isClient || redirectLoading) return
-
-    // If already logged in via AuthContext, redirect immediately — no extra auth call
+    if (!isClient) return
     if (role) {
-      navigate(ROLE_ROUTES[role] || ROLE_ROUTES.worker, { replace: true })
+      navigate(ROLE_ROUTES[role] || '/worker/dashboard', { replace: true })
       return
     }
-
     navigate('/login')
   }
 
