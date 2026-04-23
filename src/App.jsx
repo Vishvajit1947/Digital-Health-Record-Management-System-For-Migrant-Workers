@@ -1,10 +1,11 @@
-import { Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { supabase } from './lib/supabase'
 import './lib/i18n'
 
 import RoleGuard from './components/shared/RoleGuard'
@@ -47,15 +48,54 @@ function ProtectedLayout({ role, children }) {
   )
 }
 
-// Guards the /patient/:token route.
-// Enforces: authenticated + role=doctor before rendering PatientAccess.
-// All other states show a spinner or redirect — patient data is never exposed.
+// NfcPatientGuard — isolated auth check for the /patient/:token route.
+// Does NOT depend on AuthContext loading state to avoid infinite spinner issues.
+// Uses a single supabase.auth.getUser() call with its own status state.
 function NfcPatientGuard({ children }) {
-  const { session, role, loading } = useAuth()
+  const [status, setStatus] = useState('loading') // 'loading' | 'doctor' | 'denied' | 'unauthenticated'
   const location = useLocation()
 
-  // Wait until auth is fully resolved
-  if (loading) {
+  useEffect(() => {
+    let mounted = true
+
+    // Fail-safe: if auth check takes > 4s, treat as unauthenticated
+    const timeout = setTimeout(() => {
+      if (mounted) setStatus('unauthenticated')
+    }, 4000)
+
+    async function checkAuth() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!mounted) return
+
+        if (!user) {
+          setStatus('unauthenticated')
+          return
+        }
+
+        // Check role from the users table
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (!mounted) return
+
+        const role = profile?.role || user?.user_metadata?.role || null
+        setStatus(role === 'doctor' ? 'doctor' : 'denied')
+      } catch {
+        if (mounted) setStatus('unauthenticated')
+      } finally {
+        clearTimeout(timeout)
+      }
+    }
+
+    checkAuth()
+    return () => { mounted = false; clearTimeout(timeout) }
+  }, []) // runs once on mount
+
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <LoadingSpinner size="lg" />
@@ -63,13 +103,11 @@ function NfcPatientGuard({ children }) {
     )
   }
 
-  // Not logged in → send to login, preserving the full NFC URL for redirect-back
-  if (!session) {
+  if (status === 'unauthenticated') {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  // Logged in but not a doctor → show access denied (don't redirect to avoid loops)
-  if (role !== 'doctor') {
+  if (status === 'denied') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
         <div className="max-w-sm w-full bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-8 text-center">
@@ -88,7 +126,7 @@ function NfcPatientGuard({ children }) {
     )
   }
 
-  // Authenticated doctor — render inside AppLayout
+  // status === 'doctor' — render inside AppLayout
   return <AppLayout>{children}</AppLayout>
 }
 
