@@ -41,8 +41,6 @@ export default function DoctorDashboard() {
 
         if (recentError) throw recentError
 
-        console.log('Filtered Data:', data)
-
         const normalized = (data || []).map(record => {
           const worker = Array.isArray(record.workers) ? record.workers[0] : record.workers
           return {

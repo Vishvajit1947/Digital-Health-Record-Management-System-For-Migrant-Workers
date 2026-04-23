@@ -84,9 +84,10 @@ export default function Register() {
             .from('workers')
             .select('id')
             .eq('user_id', userId)
-            .single(), undefined, 'Fetching worker record timed out.')
+            .maybeSingle(), undefined, 'Fetching worker record timed out.')
 
           if (workerLookupErr) throw workerLookupErr
+          if (!workerRow) throw new Error('Worker record not found after insert')
 
           const { error: tokenErr } = await withTimeout(supabase.from('nfc_tokens').insert({
             worker_id: workerRow.id,

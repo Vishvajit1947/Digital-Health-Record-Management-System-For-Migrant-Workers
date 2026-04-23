@@ -42,7 +42,6 @@ export default function DoctorPatients() {
         if (recordsError) throw recordsError
 
         const resolvedRecordsData = resolvedRecords || []
-        console.log('Records:', resolvedRecordsData)
 
         if (!cancelled) {
           setRecords(resolvedRecordsData)

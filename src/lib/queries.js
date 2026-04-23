@@ -527,7 +527,6 @@ export async function getDoctorIdByUserId(authUserId) {
     return null
   }
 
-  console.log('Auth ID:', authUserId, '→ Doctor ID:', data?.id ?? null)
   return data?.id ?? null
 }
 

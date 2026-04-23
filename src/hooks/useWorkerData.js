@@ -9,23 +9,22 @@ export function useWorkerData(workerId) {
 
   useEffect(() => {
     if (!workerId) return
-    async function fetch() {
+    async function fetchWorker() {
       try {
         const { data, error } = await supabase
           .from('workers')
           .select('*')
           .eq('id', workerId)
-          .single()
+          .maybeSingle()
         if (error) throw error
-        setWorker(data)
+        setWorker(data || mockWorker(workerId))
       } catch {
-        // Use mock data in demo mode
         setWorker(mockWorker(workerId))
       } finally {
         setLoading(false)
       }
     }
-    fetch()
+    fetchWorker()
   }, [workerId])
 
   return { worker, loading, error }
