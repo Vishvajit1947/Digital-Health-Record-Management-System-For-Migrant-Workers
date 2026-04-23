@@ -54,8 +54,8 @@ function NfcPatientGuard({ children }) {
   const { session, role, loading } = useAuth()
   const location = useLocation()
 
-  // Wait until auth is fully resolved (session set + profile loaded)
-  if (loading || (session && !role)) {
+  // Wait until auth is fully resolved
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <LoadingSpinner size="lg" />

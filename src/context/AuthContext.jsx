@@ -54,7 +54,9 @@ export function AuthProvider({ children }) {
   // ── Effect 2: async profile fetch (outside the auth lock) ─────────────────
   useEffect(() => {
     if (!session?.user) return
-    if (lastProfileUid.current === session.user.id) return
+    // Only skip re-fetch if uid matches AND role is already set.
+    // If role is null (e.g. component remounted), always re-fetch.
+    if (lastProfileUid.current === session.user.id && role !== null) return
 
     lastProfileUid.current = session.user.id
     let cancelled = false
@@ -97,7 +99,7 @@ export function AuthProvider({ children }) {
 
     loadProfile()
     return () => { cancelled = true }
-  }, [session])
+  }, [session, role]) // role in deps so effect re-runs if role is null after remount
 
   async function signIn(email, password) {
     assertSupabaseConfigured()
