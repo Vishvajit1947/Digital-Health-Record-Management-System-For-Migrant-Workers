@@ -36,16 +36,17 @@ export default function Login() {
     return intendedPath.current || ROLE_REDIRECT[currentRole] || '/worker/dashboard'
   }
 
-  // Single effect: fires when auth resolves. If already logged in → redirect immediately.
-  // If not logged in (role is null after loading) → stay and show form.
+  // Redirect as soon as role is known — don't wait for authLoading.
+  // authLoading can stay true briefly after signIn while profile loads,
+  // but role gets set as soon as loadProfile() completes.
   useEffect(() => {
-    if (authLoading) return
     if (!role) return
     if (didRedirect.current) return
     didRedirect.current = true
-    navigate(getTarget(role), { replace: true })
+    const target = getTarget(role)
+    navigate(target, { replace: true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, role])
+  }, [role])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -73,9 +74,9 @@ export default function Login() {
     navigate(getTarget(demoRole), { replace: true })
   }
 
-  // While auth is resolving, show a neutral spinner — not the form.
-  // This prevents the form from flashing before an already-logged-in user is redirected.
-  if (authLoading) {
+  // Show spinner only while auth is loading AND we don't yet know the role.
+  // If role is known, the useEffect above will redirect — no need to show spinner.
+  if (authLoading && !role) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
