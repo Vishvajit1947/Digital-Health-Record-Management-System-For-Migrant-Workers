@@ -26,9 +26,13 @@ export function assertSupabaseConfigured() {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-	auth: {
-		persistSession: true,
-		autoRefreshToken: true,
-		detectSessionInUrl: true,
-	},
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    // Explicit storage key prevents lock conflicts when multiple Supabase
+    // clients are accidentally instantiated (e.g. from both lib/supabase.js
+    // and lib/supabaseClient.js being imported separately).
+    storageKey: 'healthid-auth-token',
+  },
 })

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
   assertSupabaseConfigured,
@@ -15,52 +15,34 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Tracks whether a fetchUserRole call is already in-flight.
+  // Prevents concurrent DB lookups when onAuthStateChange fires rapidly.
+  const fetchingRef = useRef(false)
+
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
 
     let active = true
 
-    async function initAuth() {
-      if (!isSupabaseConfigured) {
-        if (active) { setSession(null); setUser(null); setRole(null); setLoading(false) }
-        return
-      }
-
-      try {
-        const { data, error } = await withTimeout(
-          supabase.auth.getSession(),
-          undefined,
-          'Unable to verify session.',
-        )
+    // onAuthStateChange is the single source of truth for session state.
+    // It fires INITIAL_SESSION on mount (replaces the need for getSession()),
+    // then fires SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED etc. as they happen.
+    // Using ONLY this listener eliminates the duplicate-call race condition.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
         if (!active) return
 
-        if (error || !data?.session) {
-          setSession(null); setUser(null); setRole(null); setLoading(false)
-          return
+        setSession(newSession)
+
+        if (newSession?.user) {
+          await fetchUserRole(newSession.user, active)
+        } else {
+          setUser(null)
+          setRole(null)
+          setLoading(false)
         }
-
-        setSession(data.session)
-        await fetchUserRole(data.session.user, active)
-      } catch {
-        if (active) { setSession(null); setUser(null); setRole(null); setLoading(false) }
       }
-    }
-
-    initAuth()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!active) return
-      if (event === 'INITIAL_SESSION') return
-
-      setSession(newSession)
-      if (newSession?.user) {
-        // Pass setLoadingTrue=false — guards are already rendered, no need to
-        // flash loading spinner again. This prevents the navigation loop.
-        await fetchUserRole(newSession.user, active, false)
-      } else {
-        setUser(null); setRole(null); setLoading(false)
-      }
-    })
+    )
 
     return () => {
       active = false
@@ -68,12 +50,13 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  async function fetchUserRole(authUser, active = true, setLoadingTrue = true) {
-    const metadataRole = authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
+  async function fetchUserRole(authUser, active = true) {
+    // Deduplicate: if a fetch is already running, skip this one.
+    if (fetchingRef.current) return
+    fetchingRef.current = true
 
-    // Only set loading=true on initial auth check, not on post-login SIGNED_IN events.
-    // Setting it on SIGNED_IN causes guards to re-render → navigate → loop.
-    if (active && setLoadingTrue) setLoading(true)
+    const metadataRole =
+      authUser?.user_metadata?.role || authUser?.app_metadata?.role || null
 
     try {
       const { data } = await withTimeout(
@@ -89,26 +72,36 @@ export function AuthProvider({ children }) {
         setRole(data.role || metadataRole || 'worker')
       } else {
         setRole(metadataRole || 'worker')
-        setUser({ id: authUser.id, role: metadataRole || 'worker', full_name: authUser.email || 'User' })
+        setUser({
+          id: authUser.id,
+          role: metadataRole || 'worker',
+          full_name: authUser.email || 'User',
+        })
       }
     } catch {
       if (!active) return
       const demoRole = localStorage.getItem('demo_role')
       const fallback = demoRole || metadataRole || 'worker'
       setRole(fallback)
-      setUser({ id: authUser.id, role: fallback, full_name: demoRole ? 'Demo User' : (authUser.email || 'User') })
+      setUser({
+        id: authUser.id,
+        role: fallback,
+        full_name: demoRole ? 'Demo User' : (authUser.email || 'User'),
+      })
     } finally {
+      fetchingRef.current = false
       if (active) setLoading(false)
     }
   }
 
   async function signIn(email, password) {
     assertSupabaseConfigured()
-    const { data, error } = await withTimeout(
-      supabase.auth.signInWithPassword({ email, password }),
-      undefined,
-      'Login timed out. Please retry.',
-    )
+    // Do NOT wrap signInWithPassword in withTimeout — it holds the auth lock
+    // and a timeout rejection leaves the lock held, causing "lock stolen" errors.
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     if (error) throw error
     return data
   }
@@ -117,19 +110,28 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
     localStorage.removeItem('demo_role')
     localStorage.removeItem('admin_portal_access')
-    setUser(null); setRole(null); setSession(null)
+    setUser(null)
+    setRole(null)
+    setSession(null)
     if (typeof onComplete === 'function') onComplete()
   }
 
   function demoLogin(demoRole) {
     localStorage.setItem('demo_role', demoRole)
     setRole(demoRole)
-    setUser({ id: 'demo', role: demoRole, full_name: 'Demo User', email: 'demo@healthid.app' })
+    setUser({
+      id: 'demo',
+      role: demoRole,
+      full_name: 'Demo User',
+      email: 'demo@healthid.app',
+    })
     setSession({ user: { id: 'demo' } })
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, signIn, signOut, demoLogin }}>
+    <AuthContext.Provider
+      value={{ session, user, role, loading, signIn, signOut, demoLogin }}
+    >
       {children}
     </AuthContext.Provider>
   )
