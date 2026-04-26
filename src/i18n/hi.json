@@ -1,8 +1,8 @@
 {
-  "app_name": "हेल्थआईडी",
+  "app_name": "Sanjeevni",
   "tagline": "NFC डिजिटल स्वास्थ्य रिकॉर्ड",
   "login_heading": "अपने खाते में साइन इन करें",
-  "register_heading": "अपना हेल्थआईडी बनाएं",
+  "register_heading": "Sanjeevni खाता बनाएं",
   "register_role_label": "मैं हूं",
   "register_cta": "खाता बनाएं",
   "register_creating": "खाता बनाया जा रहा है...",

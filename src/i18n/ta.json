@@ -1,8 +1,8 @@
 {
-  "app_name": "ஹெல்த்ஐடி",
+  "app_name": "Sanjeevni",
   "tagline": "NFC டிஜிட்டல் சுகாதார பதிவுகள்",
   "login_heading": "உங்கள் கணக்கில் உள்நுழையவும்",
-  "register_heading": "உங்கள் ஹெல்த்ஐடியை உருவாக்கவும்",
+  "register_heading": "Sanjeevni கணக்கை உருவாக்கவும்",
   "register_role_label": "நான்",
   "register_cta": "கணக்கை உருவாக்கு",
   "register_creating": "கணக்கு உருவாக்கப்படுகிறது...",

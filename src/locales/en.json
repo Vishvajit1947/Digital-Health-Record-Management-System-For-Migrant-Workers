@@ -1,8 +1,8 @@
 {
-  "app_name": "HealthID",
+  "app_name": "Sanjeevni",
   "tagline": "NFC Digital Health Records",
   "login_heading": "Sign in to your account",
-  "register_heading": "Create your HealthID",
+  "register_heading": "Create your Sanjeevni account",
   "register_role_label": "I am a",
   "register_cta": "Create Account",
   "register_creating": "Creating account...",

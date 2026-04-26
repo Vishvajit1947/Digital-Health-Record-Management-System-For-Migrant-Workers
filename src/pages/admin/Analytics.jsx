@@ -101,7 +101,7 @@ export default function Analytics() {
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{t('analytics_subtitle')}</p>
         </div>
         <button
-          onClick={() => exportCSV(csvExportData, 'healthid-analytics.csv')}
+          onClick={() => exportCSV(csvExportData, 'sanjeevni-analytics.csv')}
           className="flex items-center gap-2 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
         >
           <Download className="w-4 h-4" />{t('export_csv')}
