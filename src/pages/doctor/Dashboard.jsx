@@ -90,7 +90,7 @@ export default function DoctorDashboard() {
         {stats.map(stat => <StatCard key={stat.title} title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} />)}
       </div>
 
-      <Link to="/doctor/scan" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-8 flex items-center gap-6 transition-colors group card-hover">
+      <Link to="/doctor/scan" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl p-5 md:p-8 flex items-center gap-4 md:gap-6 transition-colors group card-hover">
         <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
           <ScanLine className="w-8 h-8" />
         </div>

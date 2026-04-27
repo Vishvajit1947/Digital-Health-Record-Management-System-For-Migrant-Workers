@@ -162,8 +162,8 @@ export default function WorkerDashboard() {
   return (
     <div className="space-y-6 page-enter leading-relaxed">
       {/* Profile Banner */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 md:p-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
           {/* Avatar & Info */}
           <div className="flex items-center gap-4 min-w-0">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-semibold shadow-lg shadow-indigo-200 dark:shadow-none">

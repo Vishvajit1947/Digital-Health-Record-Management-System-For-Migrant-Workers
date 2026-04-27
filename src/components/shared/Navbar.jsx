@@ -39,7 +39,7 @@ export default function Navbar() {
         <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
           <Nfc className="w-5 h-5 text-white" />
         </div>
-        <span className="font-semibold text-slate-800 dark:text-slate-100 text-lg truncate">{t('app_name')}</span>
+        <span className="font-semibold text-slate-800 dark:text-slate-100 text-base md:text-lg truncate">{t('app_name')}</span>
       </div>
 
       {/* Role Badge */}

@@ -7,7 +7,7 @@ export default function AppLayout({ children }) {
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto p-6 page-enter">
+        <main className="flex-1 overflow-auto p-3 md:p-6 page-enter">
           {children}
         </main>
       </div>

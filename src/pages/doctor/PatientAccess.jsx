@@ -100,7 +100,7 @@ export default function PatientAccess() {
   return (
     <div className="space-y-6 page-enter pb-10 leading-relaxed">
       {/* Header */}
-      <div className="rounded-[2rem] border border-slate-200/70 bg-white/90 p-6 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-800/90">
+      <div className="rounded-[2rem] border border-slate-200/70 bg-white/90 p-4 md:p-6 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-800/90">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-white text-2xl font-semibold shadow-lg shadow-indigo-200 dark:shadow-none">

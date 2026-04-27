@@ -33,10 +33,10 @@ export default function Sidebar() {
   const items = NAV_ITEMS[role] || []
 
   return (
-    <aside className={`${collapsed ? 'w-16' : 'w-60'} bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transition-all duration-300 shrink-0`}>
-      {/* User profile mini */}
+    <aside className={`${collapsed ? 'w-14 md:w-16' : 'w-14 md:w-60'} bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transition-all duration-300 shrink-0`}>
+      {/* User profile mini — hidden on mobile */}
       {!collapsed && (
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="hidden md:block p-4 border-b border-slate-100 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center">
               <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -66,15 +66,15 @@ export default function Sidebar() {
             }
           >
             <Icon className="w-5 h-5 shrink-0" />
-            {!collapsed && <span>{t(labelKey)}</span>}
+            {!collapsed && <span className="hidden md:inline">{t(labelKey)}</span>}
           </NavLink>
         ))}
       </nav>
 
-      {/* Collapse toggle */}
+      {/* Collapse toggle — desktop only */}
       <button
         onClick={() => setCollapsed(v => !v)}
-        className="m-3 p-2 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+        className="hidden md:flex m-3 p-2 items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
       >
         {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
       </button>
