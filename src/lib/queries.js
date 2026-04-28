@@ -47,7 +47,7 @@ function getLastMonthKeys(months = 12) {
 async function getWorkersBase(region = '') {
   let query = supabase
     .from('workers')
-    .select('id, user_id, health_id, region, date_of_birth, created_at')
+    .select('id, user_id, health_id, region, date_of_birth, created_at, risk_level')
 
   if (region) {
     query = query.eq('region', region)
@@ -140,7 +140,7 @@ export async function getHighRiskWorkers(threshold = 70, options = {}) {
     .map(worker => {
       const scoreRow = scoreMap.get(worker.id)
       const score = scoreRow?.score != null ? Number(scoreRow.score) : null
-      const riskLevel = normalizeRiskLevel(scoreRow?.risk_level, score)
+      const riskLevel = normalizeRiskLevel(worker.risk_level || scoreRow?.risk_level, score)
 
       return {
         id: worker.id,
@@ -224,7 +224,7 @@ export async function getRiskDistribution() {
   for (const worker of workers) {
     const scoreRow = scoreMap.get(worker.id)
     const score = scoreRow?.score != null ? Number(scoreRow.score) : null
-    const normalized = normalizeRiskLevel(scoreRow?.risk_level, score)
+    const normalized = normalizeRiskLevel(worker.risk_level || scoreRow?.risk_level, score)
     counts[normalized] += 1
   }
 
@@ -299,7 +299,11 @@ export async function getAdminRiskTableData({ riskLevel = '', region = '' } = {}
     .map(worker => {
       const scoreRow = scoreMap.get(worker.id)
       const score = scoreRow?.score != null ? Number(scoreRow.score) : null
-      const riskKey = normalizeRiskLevel(scoreRow?.risk_level, score)
+      // Prefer doctor-set risk_level on workers table; fall back to health_scores
+      const riskKey = normalizeRiskLevel(
+        worker.risk_level || scoreRow?.risk_level,
+        score,
+      )
 
       return {
         id: worker.id,

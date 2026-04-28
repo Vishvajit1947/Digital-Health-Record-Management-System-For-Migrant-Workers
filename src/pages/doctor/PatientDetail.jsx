@@ -6,6 +6,8 @@ import HealthScoreMeter from '../../components/shared/HealthScoreMeter'
 import { formatDate, getDiagnosisStatusKey, getRiskLevelKey } from '../../lib/helpers'
 import { RISK_BADGE_CLASSES } from '../../lib/constants'
 import { getWorkerById, getWorkerByNfcToken, getHealthRecords, getWorkerPrescriptions, getWorkerReports } from '../../lib/queries'
+import { supabase } from '../../lib/supabase'
+import toast from 'react-hot-toast'
 import { useTranslation } from 'react-i18next'
 
 export default function PatientDetail() {
@@ -70,6 +72,29 @@ export default function PatientDetail() {
 
   const filteredPrescriptions = useMemo(() => prescriptions, [prescriptions])
 
+  async function handleRiskChange(e) {
+    const raw = e.target.value
+    // DB stores lowercase: 'low' | 'moderate' | 'high' | 'critical'
+    const newRisk = raw.toLowerCase()
+    const prevRisk = patient.risk_level
+
+    // Optimistic update
+    setPatient(prev => ({ ...prev, risk_level: raw }))
+
+    const { error: updateError } = await supabase
+      .from('workers')
+      .update({ risk_level: newRisk })
+      .eq('id', patient.id)
+
+    if (updateError) {
+      console.error('Risk update error:', JSON.stringify(updateError))
+      toast.error(`Failed: ${updateError.message || updateError.code || 'Unknown error'}`)
+      setPatient(prev => ({ ...prev, risk_level: prevRisk }))
+    } else {
+      toast.success('Risk level updated')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-[45vh] flex items-center justify-center">
@@ -100,6 +125,18 @@ export default function PatientDetail() {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-semibold text-slate-800 dark:text-slate-100 break-words">{patient.name}</h1>
               <span className={`px-3 py-1 rounded-full text-xs font-medium ${RISK_BADGE_CLASSES[patient.risk_level] || 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>{t(getRiskLevelKey(patient.risk_level))}</span>
+              {/* Editable risk level — doctor only */}
+              <select
+                value={(patient.risk_level || 'low').toLowerCase()}
+                onChange={handleRiskChange}
+                className="text-xs border border-slate-200 dark:border-slate-600 rounded-xl px-2.5 py-1 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                title="Update risk level"
+              >
+                <option value="low">Low</option>
+                <option value="moderate">Moderate</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
             </div>
             <div className="flex flex-wrap gap-3 mt-2 text-sm text-slate-500 dark:text-slate-400">
               <span className="font-mono text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 rounded-full">{patient.health_id}</span>
